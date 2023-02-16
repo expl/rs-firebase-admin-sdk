@@ -1,0 +1,37 @@
+name: firebase-admin-sdk-test-env
+services:
+  # Firebase emulator
+  emulator:
+    container_name: emulator
+    image: kpetrikas/firebase-emulator:latest
+    ports:
+      # Emulator UI
+      - "4000:4000"
+      # Auth
+      - "9099:9099"
+    environment:
+      PROJECT_ID: demo-firebase-project
+      EMULATORS: auth
+
+  # Main container for SDK environment
+  admin-sdk:
+    container_name: firebase-admin-sdk
+    build: .
+    depends_on:
+      - emulator
+    volumes:
+      - ..:/sdk
+      # do not expose build path to host, otherwise compilation will be very very slow
+      - sdk-target:/sdk/target
+      # expose cargo registry for caching purposes
+      - sdk-cargo:/usr/local/cargo/registry
+    environment:
+      FIREBASE_AUTH_EMULATOR: emulator:9099
+      FIREBASE_EMULATOR_PROJECT_ID: demo-firebase-project
+    command: bash -c "sleep infinity"
+
+volumes:
+  sdk-target:
+    name: firebase-admin-sdk-target
+  sdk-cargo:
+    name: firebase-admin-sdk-cargo

@@ -1,0 +1,16 @@
+{
+    "name": "firebase-admin-sdk-test-env",
+    "dockerComposeFile": "./docker/docker-compose.yaml",
+    "service": "admin-sdk",
+    "workspaceFolder": "/sdk",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "bungcip.better-toml",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}
+  
