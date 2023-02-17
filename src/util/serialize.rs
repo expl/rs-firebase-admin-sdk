@@ -1,10 +1,10 @@
-use time::OffsetDateTime;
 use serde::de::{self, Visitor};
 use std::fmt;
+use time::OffsetDateTime;
 
 #[derive(Debug, Clone)]
 pub struct StrEpochMs {
-    dt: OffsetDateTime
+    dt: OffsetDateTime,
 }
 
 impl From<OffsetDateTime> for StrEpochMs {
@@ -29,14 +29,12 @@ impl<'de> Visitor<'de> for StrEpochMsVisitor {
     }
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where E: de::Error
+    where
+        E: de::Error,
     {
-        let unix_ts_ms: i128 = value.parse()
-            .map_err(|e| E::custom(format!("{e:?}")))?;
+        let unix_ts_ms: i128 = value.parse().map_err(|e| E::custom(format!("{e:?}")))?;
 
-        let off_dt = OffsetDateTime::from_unix_timestamp_nanos(
-            unix_ts_ms * 1000000
-        )
+        let off_dt = OffsetDateTime::from_unix_timestamp_nanos(unix_ts_ms * 1000000)
             .map_err(|e| E::custom(format!("{e:?}")))?;
 
         Ok(off_dt.into())
@@ -54,7 +52,7 @@ impl<'de> de::Deserialize<'de> for StrEpochMs {
 
 #[derive(Debug, Clone)]
 pub struct StrEpochSec {
-    dt: OffsetDateTime
+    dt: OffsetDateTime,
 }
 
 impl From<OffsetDateTime> for StrEpochSec {
@@ -79,10 +77,10 @@ impl<'de> Visitor<'de> for StrEpochSecVisitor {
     }
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where E: de::Error
+    where
+        E: de::Error,
     {
-        let unix_ts: i64 = value.parse()
-            .map_err(|e| E::custom(format!("{e:?}")))?;
+        let unix_ts: i64 = value.parse().map_err(|e| E::custom(format!("{e:?}")))?;
 
         let off_dt = OffsetDateTime::from_unix_timestamp(unix_ts)
             .map_err(|e| E::custom(format!("{e:?}")))?;
@@ -102,7 +100,7 @@ impl<'de> de::Deserialize<'de> for StrEpochSec {
 
 #[derive(Debug, Clone)]
 pub struct I128EpochMs {
-    dt: OffsetDateTime
+    dt: OffsetDateTime,
 }
 
 impl From<OffsetDateTime> for I128EpochMs {
@@ -127,11 +125,10 @@ impl<'de> Visitor<'de> for I128EpochMsVisitor {
     }
 
     fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
-    where E: de::Error
+    where
+        E: de::Error,
     {
-        let off_dt = OffsetDateTime::from_unix_timestamp_nanos(
-            value * 1000000
-        )
+        let off_dt = OffsetDateTime::from_unix_timestamp_nanos(value * 1000000)
             .map_err(|e| E::custom(format!("{e:?}")))?;
 
         Ok(off_dt.into())

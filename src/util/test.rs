@@ -1,10 +1,6 @@
+use super::{I128EpochMs, StrEpochMs, StrEpochSec};
 use serde_json::from_str;
-use time::{OffsetDateTime, Month};
-use super::{
-    StrEpochMs,
-    StrEpochSec,
-    I128EpochMs
-};
+use time::{Month, OffsetDateTime};
 
 #[test]
 fn test_str_epoch_ms() {

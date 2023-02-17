@@ -2,15 +2,15 @@
 mod test;
 
 use serde::de::{self, Visitor};
-use serde::{Serialize, Serializer};
 use serde::ser::Error;
-use std::fmt;
-use serde_json::{Value, from_str, to_string};
+use serde::{Serialize, Serializer};
+use serde_json::{from_str, to_string, Value};
 use std::collections::BTreeMap;
+use std::fmt;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Claims {
-    claims: BTreeMap<String, Value>
+    claims: BTreeMap<String, Value>,
 }
 
 impl Claims {
@@ -35,15 +35,16 @@ impl<'de> Visitor<'de> for ClaimsVisitor {
     type Value = Claims;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string containing count of miliseconds since UNIX epoch")
+        formatter.write_str("a string containing JSON encoded dictionary")
     }
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where E: de::Error
+    where
+        E: de::Error,
     {
-        let claims_map: BTreeMap<String, Value> = from_str(value)
-            .map_err(|e| E::custom(format!("{e:?}")))?;
-        
+        let claims_map: BTreeMap<String, Value> =
+            from_str(value).map_err(|e| E::custom(format!("{e:?}")))?;
+
         Ok(claims_map.into())
     }
 }
@@ -62,8 +63,7 @@ impl Serialize for Claims {
     where
         S: Serializer,
     {
-        let claim_str = to_string(self.get())
-            .map_err(|e| S::Error::custom(format!("{e:?}")))?;
+        let claim_str = to_string(self.get()).map_err(|e| S::Error::custom(format!("{e:?}")))?;
         serializer.serialize_str(&claim_str)
     }
 }

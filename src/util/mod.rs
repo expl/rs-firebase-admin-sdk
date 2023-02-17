@@ -1,9 +1,5 @@
+pub mod serialize;
 #[cfg(test)]
 mod test;
-pub mod serialize;
 
-pub use serialize::{
-    StrEpochMs,
-    StrEpochSec,
-    I128EpochMs
-};
+pub use serialize::{I128EpochMs, StrEpochMs, StrEpochSec};

@@ -2,7 +2,6 @@ pub mod error;
 pub mod url_params;
 
 use crate::credentials::Credentials;
-use url_params::UrlParams;
 use async_trait::async_trait;
 use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
@@ -16,8 +15,9 @@ use hyper::{
 use hyper_openssl::HttpsConnector;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json;
-use std::sync::Arc;
 use std::iter::Iterator;
+use std::sync::Arc;
+use url_params::UrlParams;
 
 #[async_trait]
 pub trait ApiHttpClient {
@@ -25,7 +25,7 @@ pub trait ApiHttpClient {
         &self,
         uri: Uri,
         method: Method,
-        oauth_scopes: &[&str]
+        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>>
     where
         Self: Sized + Send + Sync,
@@ -36,7 +36,7 @@ pub trait ApiHttpClient {
         uri: Uri,
         params: ParamsT,
         method: Method,
-        oauth_scopes: &[&str]
+        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>>
     where
         Self: Sized + Send + Sync,
@@ -65,7 +65,7 @@ pub trait ApiHttpClient {
     where
         Self: Sized + Send + Sync,
         RequestT: Serialize + Send + Sync;
-    
+
     async fn send_request_body_empty_response<RequestT>(
         &self,
         uri: Uri,
@@ -104,7 +104,7 @@ where
         let json_payload_view = std::str::from_utf8(body)
             .into_report()
             .change_context(ApiClientError::FailedToDeserializeResponse)?;
-        
+
         println!("GOT: {}", json_payload_view);
 
         let response = serde_json::from_str(json_payload_view)
@@ -115,15 +115,22 @@ where
         Ok(response)
     }
 
-    async fn handle_response<ResponseT>(&self, request: Request<Body>) -> Result<ResponseT, Report<ApiClientError>>
-    where ResponseT: DeserializeOwned + Send + Sync,
+    async fn handle_response<ResponseT>(
+        &self,
+        request: Request<Body>,
+    ) -> Result<ResponseT, Report<ApiClientError>>
+    where
+        ResponseT: DeserializeOwned + Send + Sync,
     {
         let response_body = self.handle_byte_response(request).await?;
 
         Self::deserialize_body(&response_body)
     }
 
-    async fn handle_byte_response(&self, request: Request<Body>) -> Result<Bytes, Report<ApiClientError>> {
+    async fn handle_byte_response(
+        &self,
+        request: Request<Body>,
+    ) -> Result<Bytes, Report<ApiClientError>> {
         let response = self
             .http_client
             .request(request)
@@ -161,7 +168,7 @@ where
     ) -> Result<ResponseT, Report<ApiClientError>>
     where
         Self: Sized + Send + Sync,
-        ResponseT: DeserializeOwned + Send + Sync
+        ResponseT: DeserializeOwned + Send + Sync,
     {
         let request = Request::builder()
             .method(method)
@@ -171,8 +178,8 @@ where
             .body(Body::empty())
             .into_report()
             .change_context(ApiClientError::FailedToSendRequest)?;
-        
-            self.handle_response(request).await
+
+        self.handle_response(request).await
     }
 
     async fn send_request_with_params<ResponseT, ParamsT>(
@@ -180,12 +187,12 @@ where
         uri: Uri,
         params: ParamsT,
         method: Method,
-        oauth_scopes: &[&str]
+        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>>
     where
         Self: Sized + Send + Sync,
         ResponseT: DeserializeOwned + Send + Sync,
-        ParamsT: Iterator<Item = (String, String)> + Send + Sync
+        ParamsT: Iterator<Item = (String, String)> + Send + Sync,
     {
         let uri_str: String = uri.to_string() + &params.into_url_params();
         let uri = uri_str
@@ -213,7 +220,7 @@ where
             .into_report()
             .change_context(ApiClientError::FailedToSerializeRequest)?
             .into();
-        
+
         let request = Request::builder()
             .method(method)
             .uri(uri)
@@ -242,7 +249,7 @@ where
             .into_report()
             .change_context(ApiClientError::FailedToSerializeRequest)?
             .into();
-        
+
         let request = Request::builder()
             .method(method)
             .uri(uri)
@@ -267,7 +274,8 @@ where
         Self: Sized + Send + Sync,
         RequestT: Serialize + Send + Sync,
     {
-        self.send_request_body_get_bytes(uri, method, request_body, oauth_scopes).await?;
+        self.send_request_body_get_bytes(uri, method, request_body, oauth_scopes)
+            .await?;
 
         Ok(())
     }

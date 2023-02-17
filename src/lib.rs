@@ -37,9 +37,7 @@ impl App<EmulatorCredentials> {
 impl App<GcpCredentials> {
     pub fn live(project_id: String, service_account: CustomServiceAccount) -> Self {
         Self {
-            credentials: Arc::new(
-                service_account.into()
-            ),
+            credentials: Arc::new(service_account.into()),
             project_id,
         }
     }

@@ -1,22 +1,22 @@
 #[cfg(test)]
 mod test;
 
-use crate::api_uri::{
-    ApiUriBuilder,
-    FirebaseAuthRestApi,
-    FirebaseAuthEmulatorRestApi
-};
+pub mod claims;
+pub mod import;
+
+use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRestApi};
 use crate::client::error::ApiClientError;
 use crate::client::ApiHttpClient;
-use crate::util::{StrEpochMs, StrEpochSec, I128EpochMs, Claims};
+use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
 use async_trait::async_trait;
+pub use claims::Claims;
 use error_stack::{Report, ResultExt};
 use http::uri::{Authority, Scheme};
 use hyper::Method;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 use std::collections::BTreeMap;
 use std::vec;
+use time::OffsetDateTime;
 
 const FIREBASE_AUTH_REST_AUTHORITY: &str = "identitytoolkit.googleapis.com";
 
@@ -39,7 +39,11 @@ pub struct NewUser {
 
 impl NewUser {
     pub fn email_and_password(email: String, password: String) -> Self {
-        Self {uid: None, email: Some(email), password: Some(password)}
+        Self {
+            uid: None,
+            email: Some(email),
+            password: Some(password),
+        }
     }
 }
 
@@ -50,7 +54,7 @@ pub struct ProviderUserInfo {
     pub email: Option<String>,
     pub phone_number: Option<String>,
     pub federated_id: Option<String>,
-    pub raw_id: String
+    pub raw_id: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -72,13 +76,13 @@ pub struct User {
     pub provider_user_info: Option<Vec<ProviderUserInfo>>,
     #[serde(rename = "customAttributes")]
     pub custom_claims: Option<Claims>,
-    pub disabled: Option<bool>
+    pub disabled: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Users {
-    pub users: Option<Vec<User>>
+    pub users: Option<Vec<User>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -113,7 +117,7 @@ pub struct UserIdentifiers {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub federated_user_id: Option<FederatedUserId>
+    pub federated_user_id: Option<FederatedUserId>,
 }
 
 impl UserIdentifiers {
@@ -124,14 +128,14 @@ impl UserIdentifiers {
 
 #[derive(Clone, Default)]
 pub struct UserIdentifiersBuilder {
-    ids: UserIdentifiers
+    ids: UserIdentifiers,
 }
 
 impl UserIdentifiersBuilder {
     pub fn with_email(mut self, email: String) -> Self {
         match &mut self.ids.email {
             Some(email_vec) => email_vec.push(email),
-            None => self.ids.email = Some(vec![email])
+            None => self.ids.email = Some(vec![email]),
         };
 
         self
@@ -140,7 +144,7 @@ impl UserIdentifiersBuilder {
     pub fn with_uid(mut self, uid: String) -> Self {
         match &mut self.ids.uid {
             Some(uid_vec) => uid_vec.push(uid),
-            None => self.ids.uid = Some(vec![uid])
+            None => self.ids.uid = Some(vec![uid]),
         };
 
         self
@@ -149,7 +153,7 @@ impl UserIdentifiersBuilder {
     pub fn with_phone_number(mut self, pnumber: String) -> Self {
         match &mut self.ids.phone_number {
             Some(pnumber_vec) => pnumber_vec.push(pnumber),
-            None => self.ids.phone_number = Some(vec![pnumber])
+            None => self.ids.phone_number = Some(vec![pnumber]),
         };
 
         self
@@ -165,13 +169,13 @@ pub enum DeleteAttribute {
     #[serde(rename = "DISPLAY_NAME")]
     DisplayName,
     #[serde(rename = "PHOTO_URL")]
-    PhotoUrl
+    PhotoUrl,
 }
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum DeleteProvider {
-    Phone
+    Phone,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -201,7 +205,7 @@ pub struct UserUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delete_attribute: Option<Vec<DeleteAttribute>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delete_provider: Option<Vec<DeleteProvider>>
+    pub delete_provider: Option<Vec<DeleteProvider>>,
 }
 
 impl UserUpdate {
@@ -211,27 +215,34 @@ impl UserUpdate {
 }
 
 pub struct UserUpdateBuilder {
-    update: UserUpdate
+    update: UserUpdate,
 }
 
 pub enum AttributeOp<T> {
     Change(T),
-    Delete
+    Delete,
 }
 
 impl UserUpdateBuilder {
     pub fn new(uid: String) -> Self {
         Self {
-            update: UserUpdate { uid, ..Default::default() }
+            update: UserUpdate {
+                uid,
+                ..Default::default()
+            },
         }
     }
 
     pub fn display_name(mut self, value: AttributeOp<String>) -> Self {
         match value {
-            AttributeOp::Change(new_display_name) => self.update.display_name = Some(new_display_name),
-            AttributeOp::Delete => self.update.delete_attribute
+            AttributeOp::Change(new_display_name) => {
+                self.update.display_name = Some(new_display_name)
+            }
+            AttributeOp::Delete => self
+                .update
+                .delete_attribute
                 .get_or_insert(Vec::new())
-                .push(DeleteAttribute::DisplayName)
+                .push(DeleteAttribute::DisplayName),
         };
 
         self
@@ -240,9 +251,11 @@ impl UserUpdateBuilder {
     pub fn photo_url(mut self, value: AttributeOp<String>) -> Self {
         match value {
             AttributeOp::Change(new_photo_url) => self.update.photo_url = Some(new_photo_url),
-            AttributeOp::Delete => self.update.delete_attribute
+            AttributeOp::Delete => self
+                .update
+                .delete_attribute
                 .get_or_insert(Vec::new())
-                .push(DeleteAttribute::PhotoUrl)
+                .push(DeleteAttribute::PhotoUrl),
         };
 
         self
@@ -250,10 +263,14 @@ impl UserUpdateBuilder {
 
     pub fn phone_number(mut self, value: AttributeOp<String>) -> Self {
         match value {
-            AttributeOp::Change(new_phone_number) => self.update.phone_number = Some(new_phone_number),
-            AttributeOp::Delete => self.update.delete_provider
+            AttributeOp::Change(new_phone_number) => {
+                self.update.phone_number = Some(new_phone_number)
+            }
+            AttributeOp::Delete => self
+                .update
+                .delete_provider
                 .get_or_insert(Vec::new())
-                .push(DeleteProvider::Phone)
+                .push(DeleteProvider::Phone),
         };
 
         self
@@ -298,7 +315,7 @@ impl UserUpdateBuilder {
 #[serde(rename_all = "camelCase")]
 struct UserId {
     #[serde(rename = "localId")]
-    pub uid: String
+    pub uid: String,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -306,7 +323,7 @@ struct UserId {
 struct UserIds {
     #[serde(rename = "localIds")]
     pub uids: Vec<String>,
-    pub force: bool
+    pub force: bool,
 }
 
 #[async_trait]
@@ -334,15 +351,21 @@ where
             .await
     }
 
-    async fn get_user(&self, indentifiers: UserIdentifiers) -> Result<Option<User>, Report<ApiClientError>> {
+    async fn get_user(
+        &self,
+        indentifiers: UserIdentifiers,
+    ) -> Result<Option<User>, Report<ApiClientError>> {
         if let Some(users) = self.get_users(indentifiers).await? {
-            return Ok(users.into_iter().next())
+            return Ok(users.into_iter().next());
         }
 
         Ok(None)
     }
 
-    async fn get_users(&self, indentifiers: UserIdentifiers) -> Result<Option<Vec<User>>, Report<ApiClientError>> {
+    async fn get_users(
+        &self,
+        indentifiers: UserIdentifiers,
+    ) -> Result<Option<Vec<User>>, Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
 
@@ -356,22 +379,24 @@ where
                 &FIREBASE_AUTH_SCOPES,
             )
             .await?;
-        
+
         Ok(users.users)
     }
 
-    async fn list_users(&self, users_per_page: usize, prev: Option<UserList>) -> Result<Option<UserList>, Report<ApiClientError>> {
+    async fn list_users(
+        &self,
+        users_per_page: usize,
+        prev: Option<UserList>,
+    ) -> Result<Option<UserList>, Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
-        let mut params = vec![
-            ("maxResults".to_string(), users_per_page.clone().to_string())
-        ];
+        let mut params = vec![("maxResults".to_string(), users_per_page.clone().to_string())];
 
         if let Some(prev) = prev {
             if let Some(next_page_token) = prev.next_page_token {
                 params.push(("nextPageToken".to_string(), next_page_token));
             } else {
-                return Ok(None)
+                return Ok(None);
             }
         }
 
@@ -399,13 +424,17 @@ where
                     .build(FirebaseAuthRestApi::DeleteUser)
                     .change_context(ApiClientError::FailedToSendRequest)?,
                 Method::POST,
-                UserId {uid},
+                UserId { uid },
                 &FIREBASE_AUTH_SCOPES,
             )
             .await
     }
 
-    async fn delete_users(&self, uids: Vec<String>, force: bool) -> Result<(), Report<ApiClientError>> {
+    async fn delete_users(
+        &self,
+        uids: Vec<String>,
+        force: bool,
+    ) -> Result<(), Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
 
@@ -415,7 +444,7 @@ where
                     .build(FirebaseAuthRestApi::DeleteUsers)
                     .change_context(ApiClientError::FailedToSendRequest)?,
                 Method::POST,
-                UserIds {uids, force},
+                UserIds { uids, force },
                 &FIREBASE_AUTH_SCOPES,
             )
             .await
@@ -436,18 +465,34 @@ where
             )
             .await
     }
+
+    async fn import_users(&self, update: UserUpdate) -> Result<User, Report<ApiClientError>> {
+        let client = self.get_client();
+        let uri_builder = self.get_auth_uri_builder();
+
+        client
+            .send_request_body(
+                uri_builder
+                    .build(FirebaseAuthRestApi::UpdateUser)
+                    .change_context(ApiClientError::FailedToSendRequest)?,
+                Method::POST,
+                update,
+                &FIREBASE_AUTH_SCOPES,
+            )
+            .await
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EmulatorConfigurationSignIn {
-    allow_duplicate_emails: bool
+    allow_duplicate_emails: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EmulatorConfiguration {
-    sign_in: EmulatorConfigurationSignIn
+    sign_in: EmulatorConfigurationSignIn,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -456,13 +501,13 @@ pub struct OobCode {
     pub email: String,
     pub oob_code: String,
     pub oob_link: String,
-    pub request_type: String
+    pub request_type: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OobCodes {
-    pub oob_codes: Vec<OobCode>
+    pub oob_codes: Vec<OobCode>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -475,7 +520,7 @@ pub struct SmsVerificationCode {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SmsVerificationCodes {
-    pub verification_codes: Vec<SmsVerificationCode>
+    pub verification_codes: Vec<SmsVerificationCode>,
 }
 
 #[async_trait]
@@ -500,11 +545,13 @@ where
                 &FIREBASE_AUTH_SCOPES,
             )
             .await?;
-        
-            Ok(())
+
+        Ok(())
     }
 
-    async fn get_emulator_configuration(&self) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
+    async fn get_emulator_configuration(
+        &self,
+    ) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -521,7 +568,7 @@ where
 
     async fn patch_emulator_configuration(
         &self,
-        configuration: EmulatorConfiguration
+        configuration: EmulatorConfiguration,
     ) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
@@ -553,7 +600,9 @@ where
             .await
     }
 
-    async fn get_sms_verification_codes(&self) -> Result<SmsVerificationCodes, Report<ApiClientError>> {
+    async fn get_sms_verification_codes(
+        &self,
+    ) -> Result<SmsVerificationCodes, Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -572,7 +621,7 @@ where
 pub struct FirebaseAuth<ApiHttpClientT> {
     client: ApiHttpClientT,
     auth_uri_builder: ApiUriBuilder,
-    emulator_auth_uri_builder: Option<ApiUriBuilder>
+    emulator_auth_uri_builder: Option<ApiUriBuilder>,
 }
 
 impl<ApiHttpClientT> FirebaseAuth<ApiHttpClientT>
@@ -589,15 +638,11 @@ where
                     "/{FIREBASE_AUTH_REST_AUTHORITY}/v1/projects/{project_id}"
                 )),
             ),
-            emulator_auth_uri_builder: Some(
-                ApiUriBuilder::new(
-                    Scheme::HTTP,
-                    emulator_auth,
-                    Some(format!(
-                        "/emulator/v1/projects/{project_id}"
-                    )),
-                )
-            ),
+            emulator_auth_uri_builder: Some(ApiUriBuilder::new(
+                Scheme::HTTP,
+                emulator_auth,
+                Some(format!("/emulator/v1/projects/{project_id}")),
+            )),
         }
     }
 
@@ -611,7 +656,7 @@ where
                     .expect("Failed parsing auth service authority"),
                 Some(format!("/v1/projects/{project_id}")),
             ),
-            emulator_auth_uri_builder: None
+            emulator_auth_uri_builder: None,
         }
     }
 }

@@ -12,7 +12,8 @@ pub enum FirebaseAuthRestApi {
     DeleteUser,
     DeleteUsers,
     UpdateUser,
-    CreateSessionCookie
+    ImportUsers,
+    CreateSessionCookie,
 }
 
 impl From<FirebaseAuthRestApi> for &'static str {
@@ -24,6 +25,7 @@ impl From<FirebaseAuthRestApi> for &'static str {
             FirebaseAuthRestApi::DeleteUser => "/accounts:delete",
             FirebaseAuthRestApi::DeleteUsers => "/accounts:batchDelete",
             FirebaseAuthRestApi::UpdateUser => "/accounts:update",
+            FirebaseAuthRestApi::ImportUsers => "/accounts:batchCreate",
             FirebaseAuthRestApi::CreateSessionCookie => ":createSessionCookie",
         }
     }
@@ -34,7 +36,7 @@ pub enum FirebaseAuthEmulatorRestApi {
     ClearUserAccounts,
     Configuration,
     OobCodes,
-    SmsVerificationCodes
+    SmsVerificationCodes,
 }
 
 impl From<FirebaseAuthEmulatorRestApi> for &'static str {
