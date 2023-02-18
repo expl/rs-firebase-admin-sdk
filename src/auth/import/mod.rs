@@ -27,6 +27,7 @@ pub enum HashAlgorithmName {
     Bcrypt,
 }
 
+#[derive(Debug, Clone)]
 pub enum PasswordHash {
     HmacSha512 {
         hash: String,
@@ -133,12 +134,65 @@ pub struct UserImportRecord {
     pub disabled: Option<bool>,
 }
 
+impl UserImportRecord {
+    pub fn builder() -> UserImportRecordBuilder {
+        UserImportRecordBuilder::default()
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct UserImportRecordBuilder {
     record: UserImportRecord,
 }
 
 impl UserImportRecordBuilder {
+    pub fn build(self) -> UserImportRecord {
+        self.record
+    }
+
+    pub fn with_uid(mut self, uid: String) -> Self {
+        self.record.uid = Some(uid);
+
+        self
+    }
+
+    pub fn with_email(mut self, email: String, verified: bool) -> Self {
+        self.record.email = Some(email);
+        self.record.email_verified = Some(verified);
+
+        self
+    }
+
+    pub fn with_display_name(mut self, display_name: String) -> Self {
+        self.record.display_name = Some(display_name);
+
+        self
+    }
+
+    pub fn with_photo_url(mut self, photo_url: String) -> Self {
+        self.record.photo_url = Some(photo_url);
+
+        self
+    }
+
+    pub fn with_phone_number(mut self, phone_number: String) -> Self {
+        self.record.phone_number = Some(phone_number);
+
+        self
+    }
+
+    pub fn with_custom_claims(mut self, custom_claims: Claims) -> Self {
+        self.record.custom_claims = Some(custom_claims);
+
+        self
+    }
+
+    pub fn with_being_disabled(mut self) -> Self {
+        self.record.disabled = Some(true);
+
+        self
+    }
+
     pub fn with_password(mut self, password: PasswordHash) -> Self {
         match password {
             PasswordHash::HmacSha512 { hash, salt, key } => {
@@ -221,7 +275,7 @@ impl UserImportRecordBuilder {
                 self.record.parallelization = Some(parallelization);
                 self.record.dk_len = Some(dk_len);
             }
-            PasswordHash::Bcrypt { hash, salt} => {
+            PasswordHash::Bcrypt { hash, salt } => {
                 self.record.hash_algorithm = Some(HashAlgorithmName::Bcrypt);
                 self.record.password_hash = Some(hash);
                 self.record.salt = salt;
@@ -235,5 +289,5 @@ impl UserImportRecordBuilder {
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserImportRecords {
-    pub users: Vec<UserImportRecords>,
+    pub users: Vec<UserImportRecord>,
 }

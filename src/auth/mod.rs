@@ -13,6 +13,7 @@ pub use claims::Claims;
 use error_stack::{Report, ResultExt};
 use http::uri::{Authority, Scheme};
 use hyper::Method;
+pub use import::{UserImportRecord, UserImportRecords};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::vec;
@@ -466,20 +467,25 @@ where
             .await
     }
 
-    async fn import_users(&self, update: UserUpdate) -> Result<User, Report<ApiClientError>> {
+    async fn import_users(
+        &self,
+        users: Vec<UserImportRecord>,
+    ) -> Result<(), Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
 
         client
-            .send_request_body(
+            .send_request_body_empty_response(
                 uri_builder
-                    .build(FirebaseAuthRestApi::UpdateUser)
+                    .build(FirebaseAuthRestApi::ImportUsers)
                     .change_context(ApiClientError::FailedToSendRequest)?,
                 Method::POST,
-                update,
+                UserImportRecords { users },
                 &FIREBASE_AUTH_SCOPES,
             )
-            .await
+            .await?;
+
+        Ok(())
     }
 }
 

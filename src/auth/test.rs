@@ -1,3 +1,4 @@
+use super::import::{PasswordHash, UserImportRecord};
 use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
     UserIdentifiers, UserList, UserUpdate,
@@ -298,6 +299,118 @@ async fn test_update_user() {
     assert!(user.display_name.is_none());
     assert!(user.photo_url.is_none());
     assert!(user.phone_number.is_none());
+
+    auth.clear_all_users().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn test_import_users() {
+    let passwords = vec![
+        PasswordHash::HmacSha512 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            key: "321".into(),
+        },
+        PasswordHash::HmacSha256 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            key: "321".into(),
+        },
+        PasswordHash::HmacSha1 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            key: "321".into(),
+        },
+        PasswordHash::HmacMd5 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            key: "321".into(),
+        },
+        PasswordHash::Sha256 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            rounds: 1,
+        },
+        PasswordHash::Sha512 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            rounds: 1,
+        },
+        PasswordHash::Ppkdf2Sha1 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            rounds: 1,
+        },
+        PasswordHash::Ppkdf2Sha256 {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            rounds: 1,
+        },
+        PasswordHash::Scrypt {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            rounds: 1,
+            key: "321".into(),
+            memory_cost: 1,
+            salt_separator: Some("_".into()),
+        },
+        PasswordHash::StandardScrypt {
+            hash: "ABC".into(),
+            salt: Some("123".into()),
+            block_size: 8,
+            parallelization: 2,
+            memory_cost: 1,
+            dk_len: 12,
+        },
+    ];
+
+    let mut claims = Claims::default();
+    claims
+        .get_mut()
+        .insert("foo".into(), Value::String("bar".into()));
+
+    let mut records: Vec<UserImportRecord> = Vec::with_capacity(passwords.len());
+    for (i, password) in passwords.iter().enumerate()  {
+        let record = UserImportRecord::builder()
+            .with_uid(i.to_string())
+            .with_email(format!("{i}@example.com"), true)
+            .with_display_name(format!("User {i}"))
+            .with_photo_url("http://localhost/me.jpg".into())
+            .with_phone_number("+123".into())
+            .with_custom_claims(claims.clone())
+            .with_being_disabled()
+            .with_password(password.clone())
+            .build();
+
+        records.push(record);
+    }
+
+    let auth = get_auth_service();
+
+    auth.import_users(records).await.unwrap();
+
+    for (i, _) in passwords.iter().enumerate()  {
+        let user = auth
+            .get_user(
+                UserIdentifiers::builder()
+                    .with_uid(i.to_string())
+                    .build()
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(user.uid, i.to_string());
+        assert_eq!(user.email.unwrap(), format!("{i}@example.com"));
+        assert_eq!(user.display_name.unwrap(), format!("User {i}"));
+        assert_eq!(user.photo_url.unwrap(), "http://localhost/me.jpg");
+        assert_eq!(user.phone_number.unwrap(), "+123");
+        assert_eq!(&user.custom_claims.unwrap(), &claims);
+        assert!(user.disabled.unwrap());
+        assert_eq!(user.password_hash.unwrap(), "ABC");
+        assert_eq!(user.salt.unwrap(), "123");
+    }
 
     auth.clear_all_users().await.unwrap();
 }
