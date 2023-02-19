@@ -14,6 +14,7 @@ pub enum FirebaseAuthRestApi {
     UpdateUser,
     ImportUsers,
     CreateSessionCookie,
+    SendOobCode,
 }
 
 impl From<FirebaseAuthRestApi> for &'static str {
@@ -27,6 +28,7 @@ impl From<FirebaseAuthRestApi> for &'static str {
             FirebaseAuthRestApi::UpdateUser => "/accounts:update",
             FirebaseAuthRestApi::ImportUsers => "/accounts:batchCreate",
             FirebaseAuthRestApi::CreateSessionCookie => ":createSessionCookie",
+            FirebaseAuthRestApi::SendOobCode => "/accounts:sendOobCode",
         }
     }
 }

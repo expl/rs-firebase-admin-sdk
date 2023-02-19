@@ -3,6 +3,7 @@ mod test;
 
 pub mod claims;
 pub mod import;
+pub mod oob_code;
 
 use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRestApi};
 use crate::client::error::ApiClientError;
@@ -10,6 +11,7 @@ use crate::client::ApiHttpClient;
 use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
 use async_trait::async_trait;
 pub use claims::Claims;
+use oob_code::{OobCodeAction, OobCodeActionLink, OobCodeActionType};
 use error_stack::{Report, ResultExt};
 use http::uri::{Authority, Scheme};
 use hyper::Method;
@@ -487,6 +489,27 @@ where
 
         Ok(())
     }
+
+    async fn generate_email_action_link(
+        &self,
+        oob_action: OobCodeAction,
+    ) -> Result<String, Report<ApiClientError>> {
+        let client = self.get_client();
+        let uri_builder = self.get_auth_uri_builder();
+
+        let oob_link: OobCodeActionLink = client
+            .send_request_body(
+                uri_builder
+                    .build(FirebaseAuthRestApi::SendOobCode)
+                    .change_context(ApiClientError::FailedToSendRequest)?,
+                Method::POST,
+                oob_action,
+                &FIREBASE_AUTH_SCOPES,
+            )
+            .await?;
+
+        Ok(oob_link.oob_link)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -507,7 +530,7 @@ pub struct OobCode {
     pub email: String,
     pub oob_code: String,
     pub oob_link: String,
-    pub request_type: String,
+    pub request_type: OobCodeActionType,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -591,11 +614,11 @@ where
             .await
     }
 
-    async fn get_oob_codes(&self) -> Result<OobCodes, Report<ApiClientError>> {
+    async fn get_oob_codes(&self) -> Result<Vec<OobCode>, Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
 
-        client
+        let oob_codes: OobCodes = client
             .send_request(
                 uri_builder
                     .build(FirebaseAuthEmulatorRestApi::OobCodes)
@@ -603,7 +626,9 @@ where
                 Method::GET,
                 &FIREBASE_AUTH_SCOPES,
             )
-            .await
+            .await?;
+        
+        Ok(oob_codes.oob_codes)
     }
 
     async fn get_sms_verification_codes(
