@@ -4,6 +4,7 @@ mod test;
 pub mod claims;
 pub mod import;
 pub mod oob_code;
+pub mod token;
 
 use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRestApi};
 use crate::client::error::ApiClientError;
@@ -11,11 +12,11 @@ use crate::client::ApiHttpClient;
 use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
 use async_trait::async_trait;
 pub use claims::Claims;
-use oob_code::{OobCodeAction, OobCodeActionLink, OobCodeActionType};
 use error_stack::{Report, ResultExt};
 use http::uri::{Authority, Scheme};
 use hyper::Method;
 pub use import::{UserImportRecord, UserImportRecords};
+use oob_code::{OobCodeAction, OobCodeActionLink, OobCodeActionType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::vec;
@@ -627,7 +628,7 @@ where
                 &FIREBASE_AUTH_SCOPES,
             )
             .await?;
-        
+
         Ok(oob_codes.oob_codes)
     }
 

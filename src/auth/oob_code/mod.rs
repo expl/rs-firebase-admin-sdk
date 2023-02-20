@@ -9,7 +9,7 @@ pub enum OobCodeActionType {
     #[serde(rename = "PASSWORD_RESET")]
     PasswordReset,
     #[serde(rename = "RECOVER_EMAIL")]
-    RecoverEmail
+    RecoverEmail,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -31,7 +31,7 @@ pub struct OobCodeAction {
     #[serde(skip_serializing_if = "Option::is_none")]
     android_minimum_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    android_install_app: Option<bool>
+    android_install_app: Option<bool>,
 }
 
 impl OobCodeAction {
@@ -42,7 +42,7 @@ impl OobCodeAction {
 
 #[derive(Debug, Clone)]
 pub struct OobCodeActionBuilder {
-    action: OobCodeAction
+    action: OobCodeAction,
 }
 
 impl OobCodeActionBuilder {
@@ -53,7 +53,7 @@ impl OobCodeActionBuilder {
                 email: Some(email),
                 return_oob_link: Some(true),
                 ..Default::default()
-            }
+            },
         }
     }
 
@@ -63,11 +63,7 @@ impl OobCodeActionBuilder {
         self
     }
 
-    pub fn with_ios_settings(
-        mut self,
-        continue_url: String,
-        bundle_id: String
-    ) -> Self {
+    pub fn with_ios_settings(mut self, continue_url: String, bundle_id: String) -> Self {
         self.action.continue_url = Some(continue_url);
         self.action.ios_bundle_id = Some(bundle_id);
         self.action.can_handle_code_in_app = Some(true);
@@ -76,11 +72,11 @@ impl OobCodeActionBuilder {
     }
 
     pub fn with_android_settings(
-        mut self, 
-        continue_url: String, 
+        mut self,
+        continue_url: String,
         android_package_name: String,
         android_minimum_version: Option<String>,
-        android_install_app: Option<bool>
+        android_install_app: Option<bool>,
     ) -> Self {
         self.action.continue_url = Some(continue_url);
         self.action.android_package_name = Some(android_package_name);
@@ -99,5 +95,5 @@ impl OobCodeActionBuilder {
 #[derive(Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct OobCodeActionLink {
-    pub oob_link: String
+    pub oob_link: String,
 }

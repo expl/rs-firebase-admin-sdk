@@ -1,7 +1,7 @@
 use super::import::{PasswordHash, UserImportRecord};
 use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
-    UserIdentifiers, UserList, UserUpdate, OobCodeAction, OobCodeActionType, OobCode
+    OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
 };
 use crate::client::HyperApiClient;
 use crate::credentials::emulator::EmulatorCredentials;
@@ -9,8 +9,8 @@ use crate::App;
 use hyper::Client;
 use serde_json::Value;
 use serial_test::serial;
-use tokio;
 use std::collections::BTreeMap;
+use tokio;
 
 fn get_auth_service() -> FirebaseAuth<HyperApiClient<EmulatorCredentials>> {
     App::emulated("demo-firebase-project".into()).auth("emulator:9099".parse().unwrap())
@@ -373,7 +373,7 @@ async fn test_import_users() {
         .insert("foo".into(), Value::String("bar".into()));
 
     let mut records: Vec<UserImportRecord> = Vec::with_capacity(passwords.len());
-    for (i, password) in passwords.iter().enumerate()  {
+    for (i, password) in passwords.iter().enumerate() {
         let record = UserImportRecord::builder()
             .with_uid(i.to_string())
             .with_email(format!("{i}@example.com"), true)
@@ -392,13 +392,9 @@ async fn test_import_users() {
 
     auth.import_users(records).await.unwrap();
 
-    for (i, _) in passwords.iter().enumerate()  {
+    for (i, _) in passwords.iter().enumerate() {
         let user = auth
-            .get_user(
-                UserIdentifiers::builder()
-                    .with_uid(i.to_string())
-                    .build()
-            )
+            .get_user(UserIdentifiers::builder().with_uid(i.to_string()).build())
             .await
             .unwrap()
             .unwrap();
@@ -431,7 +427,6 @@ async fn consume_oob_code(code: OobCode) {
 
         panic!("{body_str}")
     }
-    
 }
 
 #[tokio::test]
@@ -439,36 +434,37 @@ async fn consume_oob_code(code: OobCode) {
 async fn test_generate_email_action_link() {
     let auth = get_auth_service();
 
-    auth
-        .create_user(NewUser::email_and_password(
-            "oob@example.com".into(),
-            "123ABC".into(),
-        ))
+    auth.create_user(NewUser::email_and_password(
+        "oob@example.com".into(),
+        "123ABC".into(),
+    ))
+    .await
+    .unwrap();
+
+    let link_pwreset = auth
+        .generate_email_action_link(
+            OobCodeAction::builder(OobCodeActionType::PasswordReset, "oob@example.com".into())
+                .build(),
+        )
         .await
         .unwrap();
 
-    let link_pwreset = auth.generate_email_action_link(
-        OobCodeAction::builder(
-            OobCodeActionType::PasswordReset, 
-            "oob@example.com".into()
-        ).build()
-    ).await.unwrap();
-
-    let link_email_signin = auth.generate_email_action_link(
-        OobCodeAction::builder(
-            OobCodeActionType::EmailSignin, 
-            "oob@example.com".into()
+    let link_email_signin = auth
+        .generate_email_action_link(
+            OobCodeAction::builder(OobCodeActionType::EmailSignin, "oob@example.com".into())
+                .with_continue_url("http://localhost/sigin".into())
+                .build(),
         )
-        .with_continue_url("http://localhost/sigin".into())
-        .build()
-    ).await.unwrap();
+        .await
+        .unwrap();
 
-    let link_verify_email = auth.generate_email_action_link(
-        OobCodeAction::builder(
-            OobCodeActionType::VerifyEmail, 
-            "oob@example.com".into()
-        ).build()
-    ).await.unwrap();
+    let link_verify_email = auth
+        .generate_email_action_link(
+            OobCodeAction::builder(OobCodeActionType::VerifyEmail, "oob@example.com".into())
+                .build(),
+        )
+        .await
+        .unwrap();
 
     let all_codes: BTreeMap<String, OobCode> = auth
         .get_oob_codes()
