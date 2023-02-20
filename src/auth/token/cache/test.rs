@@ -54,3 +54,25 @@ async fn test_http_cache() {
     assert_eq!(cached, 123);
     assert_eq!(*calls.lock().await, 1);
 }
+
+#[tokio::test]
+async fn test_http_cache_zero_ttl() {
+    let json = Bytes::copy_from_slice(to_string(&123).unwrap().as_bytes());
+    let response = Resource {
+        data: json,
+        max_age: Duration::from_secs(0),
+    };
+    let client = CacheClientMock::new(response);
+    let calls = client.calls.clone();
+
+    let http_cache = HttpCache::new(client, "http://localhost".parse().unwrap())
+        .await
+        .unwrap();
+
+    let _: i32 = http_cache.get().await.unwrap();
+    let _: i32 = http_cache.get().await.unwrap();
+    let cached: i32 = http_cache.get().await.unwrap();
+
+    assert_eq!(cached, 123);
+    assert_eq!(*calls.lock().await, 4);
+}
