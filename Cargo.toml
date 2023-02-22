@@ -17,7 +17,9 @@ headers = "0.3.8"
 urlencoding = "2.1.2"
 bytes = "1.4.0"
 gcp_auth = "0.7.5"
-time = "0.3.17"
+time = { version = "0.3.17", features = ["serde"] }
+base64 = "0.21.0"
+openssl = "0.10.45"
 
 [dev-dependencies]
 serial_test = "1.0.0"
