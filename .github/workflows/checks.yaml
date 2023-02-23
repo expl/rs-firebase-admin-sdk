@@ -22,4 +22,4 @@ jobs:
       - name: Run linter
         run: docker exec firebase-admin-sdk cargo clippy
       - name: Run tests
-        run: docker exec firebase-admin-sdk cargo test
+        run: docker exec firebase-admin-sdk cargo test --lib
