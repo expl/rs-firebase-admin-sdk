@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup
-        run: docker compose -f docker/docker-compose.yml up --detach
+        run: docker compose -f docker/docker-compose.yaml up --detach
       - name: Check formatting
         run: docker exec firebase-admin-sdk cargo fmt --all --check
       - name: Run linter
