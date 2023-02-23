@@ -110,8 +110,6 @@ where
             .into_report()
             .change_context(ApiClientError::FailedToDeserializeResponse)?;
 
-        println!("GOT: {}", json_payload_view);
-
         let response = serde_json::from_str(json_payload_view)
             .into_report()
             .change_context(ApiClientError::FailedToDeserializeResponse)
@@ -220,7 +218,6 @@ where
         RequestT: Serialize + Send + Sync,
         ResponseT: DeserializeOwned + Send + Sync,
     {
-        println!("SENT: {}", serde_json::to_string(&request_body).unwrap());
         let body: Body = serde_json::to_string(&request_body)
             .into_report()
             .change_context(ApiClientError::FailedToSerializeRequest)?
