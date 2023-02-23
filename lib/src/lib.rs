@@ -9,8 +9,8 @@ use auth::{
     FirebaseAuth,
 };
 use client::{build_https_client, HyperApiClient, HyperClient};
-pub use credentials::gcp::GcpCredentials;
 use credentials::emulator::EmulatorCredentials;
+pub use credentials::gcp::GcpCredentials;
 use error_stack::Report;
 pub use gcp_auth::CustomServiceAccount;
 use http::uri::Authority;

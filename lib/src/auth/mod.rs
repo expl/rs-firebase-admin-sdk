@@ -426,7 +426,7 @@ where
     /// let mut user_page: Option<UserList> = None;
     /// loop {
     ///     user_page = auth.list_users(10, user_page).await.unwrap();
-    /// 
+    ///
     ///     if let Some(user_page) = &user_page {
     ///         for user in &user_page.users {
     ///             println!("User: {user:?}");
@@ -570,7 +570,7 @@ where
     ///     OobCodeActionType::PasswordReset,
     ///     "me@example.com".into()
     /// ).build();
-    /// 
+    ///
     /// let link = auth.generate_email_action_link(oob_action).await.unwrap();
     /// ```
     async fn generate_email_action_link(
