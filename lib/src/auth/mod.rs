@@ -349,7 +349,7 @@ where
     ///        "test@example.com".into(),
     ///        "123ABC".into(),
     ///     )
-    /// ).await.unwrap().unwrap();
+    /// ).await.unwrap();
     /// ```
     async fn create_user(&self, user: NewUser) -> Result<User, Report<ApiClientError>> {
         let client = self.get_client();
@@ -375,7 +375,7 @@ where
     ///         email: Some(vec!["me@example.com".into()]),
     ///         ..Default::default()
     ///     }
-    /// ).await.unwrap().unwrap();
+    /// ).await.unwrap();
     /// ```
     async fn get_user(
         &self,
@@ -539,7 +539,7 @@ where
     ///         .with_email("me@example.com".into(), true)
     ///         .with_display_name("My Name".into())
     ///         .build()
-    /// ]
+    /// ];
     /// auth.import_users(records).await.unwrap();
     /// ```
     async fn import_users(
