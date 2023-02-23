@@ -14,7 +14,7 @@ services:
       EMULATORS: auth
 
   # Main container for SDK environment
-  admin-sdk:
+  firebase-admin-sdk:
     container_name: firebase-admin-sdk
     build: .
     depends_on:
