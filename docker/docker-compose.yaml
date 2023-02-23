@@ -12,6 +12,16 @@ services:
     environment:
       PROJECT_ID: demo-firebase-project
       EMULATORS: auth
+  
+  # Firebase emulator
+  firebase-admin-sdk-doc:
+    container_name: firebase-admin-sdk-doc
+    image: nginx:latest
+    ports:
+      # Documentation is hosted here
+      - "7001:80"
+    volumes:
+      - sdk-doc:/usr/share/nginx/html:ro
 
   # Main container for SDK environment
   firebase-admin-sdk:
@@ -23,6 +33,7 @@ services:
       - ..:/sdk
       # do not expose build path to host, otherwise compilation will be very very slow
       - sdk-target:/sdk/target
+      - sdk-doc:/sdk/target/doc
       # expose cargo registry for caching purposes
       - sdk-cargo:/usr/local/cargo/registry
     environment:
@@ -33,5 +44,7 @@ services:
 volumes:
   sdk-target:
     name: firebase-admin-sdk-target
+  sdk-doc:
+    name: firebase-admin-sdk-doc
   sdk-cargo:
     name: firebase-admin-sdk-cargo

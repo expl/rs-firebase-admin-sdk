@@ -1,3 +1,5 @@
+//! Utilities
+
 pub mod serialize;
 #[cfg(test)]
 mod test;

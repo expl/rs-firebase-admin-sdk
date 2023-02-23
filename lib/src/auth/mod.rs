@@ -1,3 +1,5 @@
+//! Firebase Identity Provider management interface
+
 #[cfg(test)]
 mod test;
 
@@ -339,6 +341,16 @@ where
     fn get_client(&self) -> &ApiHttpClientT;
     fn get_auth_uri_builder(&self) -> &ApiUriBuilder;
 
+    /// Creates a new user account with the specified properties.
+    /// # Example
+    /// ```rust
+    /// let new_user = auth.create_user(
+    ///     NewUser::email_and_password(
+    ///        "test@example.com".into(),
+    ///        "123ABC".into(),
+    ///     )
+    /// ).await.unwrap().unwrap();
+    /// ```
     async fn create_user(&self, user: NewUser) -> Result<User, Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
@@ -355,6 +367,16 @@ where
             .await
     }
 
+    /// Get first user that matches given identifier filter
+    /// # Example
+    /// ```rust
+    /// let user = auth.get_user(
+    ///     UserIdentifiers {
+    ///         email: Some(vec!["me@example.com".into()]),
+    ///         ..Default::default()
+    ///     }
+    /// ).await.unwrap().unwrap();
+    /// ```
     async fn get_user(
         &self,
         indentifiers: UserIdentifiers,
@@ -366,6 +388,17 @@ where
         Ok(None)
     }
 
+    /// Get all users that match a given identifier filter
+    /// # Example
+    /// ```rust
+    /// let users = auth.get_users(
+    ///     UserIdentifiers {
+    ///         email: Some(vec!["me@example.com".into()]),
+    ///         uid: Some(vec!["A123456".into()]),
+    ///         ..Default::default()
+    ///     }
+    /// ).await.unwrap().unwrap();
+    /// ```
     async fn get_users(
         &self,
         indentifiers: UserIdentifiers,
@@ -387,6 +420,22 @@ where
         Ok(users.users)
     }
 
+    /// Fetch all users in batches of `users_per_page`, to progress pass previous page into the method's `prev`.
+    /// # Example
+    /// ```rust
+    /// let mut user_page: Option<UserList> = None;
+    /// loop {
+    ///     user_page = auth.list_users(10, user_page).await.unwrap();
+    /// 
+    ///     if let Some(user_page) = &user_page {
+    ///         for user in &user_page.users {
+    ///             println!("User: {user:?}");
+    ///         }
+    ///     } else {
+    ///         break;
+    ///     }
+    /// }
+    /// ```
     async fn list_users(
         &self,
         users_per_page: usize,
@@ -418,6 +467,7 @@ where
         Ok(Some(users))
     }
 
+    /// Delete user with given ID
     async fn delete_user(&self, uid: String) -> Result<(), Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
@@ -434,6 +484,7 @@ where
             .await
     }
 
+    /// Delete all users with given list of IDs
     async fn delete_users(
         &self,
         uids: Vec<String>,
@@ -454,6 +505,16 @@ where
             .await
     }
 
+    /// Update user with given changes
+    /// # Example
+    /// ```rust
+    /// let update = UserUpdate::builder("ID123".into())
+    ///     .display_name(AttributeOp::Change("My new name".into()))
+    ///     .phone_number(AttributeOp::Delete)
+    ///     .email("new@example.com".into())
+    ///     .build();
+    /// auth.update_user(update).await.unwrap();
+    /// ```
     async fn update_user(&self, update: UserUpdate) -> Result<User, Report<ApiClientError>> {
         let client = self.get_client();
         let uri_builder = self.get_auth_uri_builder();
@@ -470,6 +531,17 @@ where
             .await
     }
 
+    /// Create users in bulk
+    /// # Example
+    /// ```rust
+    /// let records = vec![
+    ///     UserImportRecord::builder()
+    ///         .with_email("me@example.com".into(), true)
+    ///         .with_display_name("My Name".into())
+    ///         .build()
+    /// ]
+    /// auth.import_users(records).await.unwrap();
+    /// ```
     async fn import_users(
         &self,
         users: Vec<UserImportRecord>,
@@ -491,6 +563,16 @@ where
         Ok(())
     }
 
+    /// Send email with OOB code action
+    /// # Example
+    /// ```rust
+    /// let oob_action = OobCodeAction::builder(
+    ///     OobCodeActionType::PasswordReset,
+    ///     "me@example.com".into()
+    /// ).build();
+    /// 
+    /// let link = auth.generate_email_action_link(oob_action).await.unwrap();
+    /// ```
     async fn generate_email_action_link(
         &self,
         oob_action: OobCodeAction,
@@ -562,6 +644,7 @@ where
     fn get_emulator_client(&self) -> &ApiHttpClientT;
     fn get_emulator_auth_uri_builder(&self) -> &ApiUriBuilder;
 
+    /// Delete all users within emulator
     async fn clear_all_users(&self) -> Result<(), Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
@@ -579,6 +662,7 @@ where
         Ok(())
     }
 
+    /// Get current emulator configuration
     async fn get_emulator_configuration(
         &self,
     ) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
@@ -596,6 +680,7 @@ where
             .await
     }
 
+    /// Update emulator configuration
     async fn patch_emulator_configuration(
         &self,
         configuration: EmulatorConfiguration,
@@ -615,6 +700,7 @@ where
             .await
     }
 
+    /// Fetch all OOB codes within emulator
     async fn get_oob_codes(&self) -> Result<Vec<OobCode>, Report<ApiClientError>> {
         let client = self.get_emulator_client();
         let uri_builder = self.get_emulator_auth_uri_builder();
@@ -632,6 +718,7 @@ where
         Ok(oob_codes.oob_codes)
     }
 
+    /// Fetch all SMS codes within emulator
     async fn get_sms_verification_codes(
         &self,
     ) -> Result<SmsVerificationCodes, Report<ApiClientError>> {
@@ -660,6 +747,7 @@ impl<ApiHttpClientT> FirebaseAuth<ApiHttpClientT>
 where
     ApiHttpClientT: ApiHttpClient + Send + Sync,
 {
+    /// Create Firebase Authentication manager for emulator
     pub fn emulated(emulator_auth: Authority, project_id: &str, client: ApiHttpClientT) -> Self {
         Self {
             client,
@@ -678,6 +766,7 @@ where
         }
     }
 
+    /// Create Firebase Authentication manager for live project
     pub fn live(project_id: &str, client: ApiHttpClientT) -> Self {
         Self {
             client,

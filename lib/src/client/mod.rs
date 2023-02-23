@@ -1,3 +1,5 @@
+//! HTTP(S) client traits for hanling API calls 
+
 pub mod error;
 pub mod url_params;
 

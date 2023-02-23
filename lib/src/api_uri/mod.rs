@@ -1,3 +1,5 @@
+//! API URI builder interface and API path definitions
+
 pub mod error;
 
 use error::InvalidApiUriError;

@@ -1,3 +1,5 @@
+//! OAuth2 credential managers for GCP and Firebase Emulator
+
 pub mod emulator;
 pub mod error;
 pub mod gcp;
