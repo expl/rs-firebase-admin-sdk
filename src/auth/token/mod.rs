@@ -6,7 +6,8 @@ pub mod crypto;
 pub mod error;
 pub mod jwt;
 
-use cache::{error::HttpCacheError, CacheClient, HttpCache};
+use async_trait::async_trait;
+use cache::{CacheClient, HttpCache};
 use crypto::JwtRsaPubKey;
 use error::TokenVerificationError;
 use error_stack::{Report, ResultExt};
@@ -18,18 +19,75 @@ use time::OffsetDateTime;
 const GOOGLE_PUB_KEY_URI: &str =
     "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 
-pub struct TokenVerifier<ClientT> {
+#[async_trait]
+pub trait TokenVerifier: Sized + Sync + Send {
+    async fn verify_id_token(
+        &self,
+        id_token: &str,
+    ) -> Result<JWToken, Report<TokenVerificationError>>;
+}
+
+pub struct EmulatedTokenVerifier {
+    _project_id: String,
+    _issuer: String,
+}
+
+impl EmulatedTokenVerifier {
+    pub fn new(project_id: String) -> Self {
+        Self {
+            _project_id: project_id.clone(),
+            _issuer: project_id,
+        }
+    }
+}
+
+#[async_trait]
+impl TokenVerifier for EmulatedTokenVerifier {
+    async fn verify_id_token(
+        &self,
+        id_token: &str,
+    ) -> Result<JWToken, Report<TokenVerificationError>> {
+        let token = JWToken::from_encoded(id_token)
+            .change_context(TokenVerificationError::FailedParsing)?;
+
+        // TODO: implement claim checks for emulator
+
+        Ok(token)
+    }
+}
+
+pub struct LiveTokenVerifier<ClientT> {
     project_id: String,
     issuer: String,
     key_cache: HttpCache<ClientT, BTreeMap<String, JwtRsaPubKey>>,
 }
 
-impl<ClientT: CacheClient> TokenVerifier<ClientT> {
-    pub async fn new(project_id: String, client: ClientT) -> Result<Self, Report<HttpCacheError>> {
+#[async_trait]
+impl<ClientT: CacheClient> TokenVerifier for LiveTokenVerifier<ClientT> {
+    async fn verify_id_token(
+        &self,
+        id_token: &str,
+    ) -> Result<JWToken, Report<TokenVerificationError>> {
+        let token = JWToken::from_encoded(id_token)
+            .change_context(TokenVerificationError::FailedParsing)?;
+
+        self.verify(&token).await?;
+
+        Ok(token)
+    }
+}
+
+impl<ClientT: CacheClient> LiveTokenVerifier<ClientT> {
+    pub async fn new(
+        project_id: String,
+        client: ClientT,
+    ) -> Result<Self, Report<TokenVerificationError>> {
         Ok(Self {
             issuer: String::new() + "https://securetoken.google.com/" + &project_id,
             project_id,
-            key_cache: HttpCache::new(client, Uri::from_static(GOOGLE_PUB_KEY_URI)).await?,
+            key_cache: HttpCache::new(client, Uri::from_static(GOOGLE_PUB_KEY_URI))
+                .await
+                .change_context(TokenVerificationError::FailedGettingKeys)?,
         })
     }
 
@@ -93,7 +151,10 @@ impl<ClientT: CacheClient> TokenVerifier<ClientT> {
         Ok(())
     }
 
-    pub async fn verify(&self, token: &JWToken) -> Result<(), Report<TokenVerificationError>> {
+    pub(crate) async fn verify(
+        &self,
+        token: &JWToken,
+    ) -> Result<(), Report<TokenVerificationError>> {
         self.verify_header(token)?;
         self.verify_claims(token)?;
         self.verify_signature(token).await

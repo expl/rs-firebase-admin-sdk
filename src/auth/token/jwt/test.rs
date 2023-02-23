@@ -1,8 +1,8 @@
 use super::util::generate_test_token;
 use super::{JWTAlgorithm, JWToken, TokenClaims, TokenHeader};
-use time::{Duration, OffsetDateTime};
-use std::collections::BTreeMap;
 use serde_json::Value;
+use std::collections::BTreeMap;
+use time::{Duration, OffsetDateTime};
 
 #[test]
 fn test_jwt_parse() {
@@ -41,13 +41,24 @@ fn test_jwt_parse() {
     assert_eq!(&decoded.critical_claims.sub, "FB sub");
 
     let expected_all_claims: BTreeMap<String, Value> = vec![
-        ("exp".into(), Value::Number(valid_until.unix_timestamp().into())),
-        ("iat".into(), Value::Number(issued_at.unix_timestamp().into())),
-        ("auth_time".into(), Value::Number(issued_at.unix_timestamp().into())),
+        (
+            "exp".into(),
+            Value::Number(valid_until.unix_timestamp().into()),
+        ),
+        (
+            "iat".into(),
+            Value::Number(issued_at.unix_timestamp().into()),
+        ),
+        (
+            "auth_time".into(),
+            Value::Number(issued_at.unix_timestamp().into()),
+        ),
         ("aud".into(), Value::String("FB aud".into())),
         ("iss".into(), Value::String("FB iss".into())),
         ("sub".into(), Value::String("FB sub".into())),
-    ].into_iter().collect();
+    ]
+    .into_iter()
+    .collect();
 
     assert_eq!(decoded.all_claims, expected_all_claims);
 }

@@ -19,6 +19,13 @@ use std::iter::Iterator;
 use std::sync::Arc;
 use url_params::UrlParams;
 
+pub(crate) fn build_https_client() -> HyperClient {
+    let https_connector =
+        HttpsConnector::new().expect("Could not construct TLS connector for API client");
+
+    Client::builder().build(https_connector)
+}
+
 #[async_trait]
 pub trait ApiHttpClient {
     async fn send_request<ResponseT>(
@@ -90,10 +97,8 @@ where
     CredentialSourceT: Credentials + Send + Sync + 'static,
 {
     pub fn new(credential_source: Arc<CredentialSourceT>) -> Self {
-        let connector =
-            HttpsConnector::new().expect("Could not construct TLS connector for API client");
         Self {
-            http_client: Client::builder().build(connector),
+            http_client: build_https_client(),
             credential_source,
         }
     }

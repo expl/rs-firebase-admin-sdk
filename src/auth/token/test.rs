@@ -1,7 +1,7 @@
-use super::jwt::{util::generate_test_token, JWTAlgorithm, JWToken, TokenClaims, TokenHeader};
-use super::{TokenVerifier, TokenVerificationError};
-use super::{cache::Resource, CacheClient};
 use super::crypto::generate_test_cert;
+use super::jwt::{util::generate_test_token, JWTAlgorithm, JWToken, TokenClaims, TokenHeader};
+use super::{cache::Resource, CacheClient};
+use super::{LiveTokenVerifier, TokenVerificationError};
 use async_trait::async_trait;
 use error_stack::Report;
 use http::Uri;
@@ -71,12 +71,9 @@ async fn test_verify_correct_token() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id,
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+        .await
+        .unwrap();
 
     verifier.verify(&decoded_token).await.unwrap();
 }
@@ -118,19 +115,16 @@ async fn test_verify_incorrect_token_signature_key() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id,
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+        .await
+        .unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
     if let Err(err) = result {
         match err.current_context() {
-            TokenVerificationError::InvalidSignature => {},
-            _ => panic!("Expected invalid signature error but got {err}")
+            TokenVerificationError::InvalidSignature => {}
+            _ => panic!("Expected invalid signature error but got {err}"),
         }
     } else {
         panic!("Should not be a valid token because of incorrect certificate for signature used");
@@ -171,19 +165,17 @@ async fn test_verify_token_expiration() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id.clone(),
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier =
+        LiveTokenVerifier::new(project_id.clone(), CertCacheClientMock::mock(key_map_json))
+            .await
+            .unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
     if let Err(err) = result {
         match err.current_context() {
-            TokenVerificationError::Expired => {},
-            _ => panic!("Expected expired token error but got {err}")
+            TokenVerificationError::Expired => {}
+            _ => panic!("Expected expired token error but got {err}"),
         }
     } else {
         panic!("Should not be a valid token because the token is expired");
@@ -216,19 +208,16 @@ async fn test_verify_token_expiration() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id,
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+        .await
+        .unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
     if let Err(err) = result {
         match err.current_context() {
-            TokenVerificationError::IssuedInFuture => {},
-            _ => panic!("Expected token issued in the future error but got {err}")
+            TokenVerificationError::IssuedInFuture => {}
+            _ => panic!("Expected token issued in the future error but got {err}"),
         }
     } else {
         panic!("Should not be a valid token because the token was issued in the future");
@@ -269,19 +258,17 @@ async fn test_verify_token_claims() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id.clone(),
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier =
+        LiveTokenVerifier::new(project_id.clone(), CertCacheClientMock::mock(key_map_json))
+            .await
+            .unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
     if let Err(err) = result {
         match err.current_context() {
-            TokenVerificationError::InvalidAudience => {},
-            _ => panic!("Expected invalid audience error but got {err}")
+            TokenVerificationError::InvalidAudience => {}
+            _ => panic!("Expected invalid audience error but got {err}"),
         }
     } else {
         panic!("Should not be a valid token because the audience is invalid");
@@ -311,19 +298,16 @@ async fn test_verify_token_claims() {
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
 
-    let verifier = TokenVerifier::new(
-        project_id,
-        CertCacheClientMock::mock(key_map_json),
-    )
-    .await
-    .unwrap();
+    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+        .await
+        .unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
     if let Err(err) = result {
         match err.current_context() {
-            TokenVerificationError::InvalidIssuer => {},
-            _ => panic!("Expected invalid token issuer error but got {err}")
+            TokenVerificationError::InvalidIssuer => {}
+            _ => panic!("Expected invalid token issuer error but got {err}"),
         }
     } else {
         panic!("Should not be a valid token because the token has invalid issuer");

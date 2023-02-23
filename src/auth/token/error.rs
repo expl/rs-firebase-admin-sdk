@@ -2,6 +2,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
 pub enum TokenVerificationError {
+    #[error("Error happened while parsing the token")]
+    FailedParsing,
+    #[error("Error happened while fetching public keys")]
+    FailedGettingKeys,
     #[error("Invalid key for token's signature")]
     InvalidSignatureKey,
     #[error("Invalid token's signature")]

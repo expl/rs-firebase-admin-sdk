@@ -4,9 +4,13 @@ pub mod client;
 pub mod credentials;
 pub mod util;
 
-use auth::FirebaseAuth;
-use client::HyperApiClient;
+use auth::{
+    token::{error::TokenVerificationError, EmulatedTokenVerifier, LiveTokenVerifier},
+    FirebaseAuth,
+};
+use client::{build_https_client, HyperApiClient, HyperClient};
 use credentials::{emulator::EmulatorCredentials, gcp::GcpCredentials};
+use error_stack::Report;
 pub use gcp_auth::CustomServiceAccount;
 use http::uri::Authority;
 use std::sync::Arc;
@@ -32,6 +36,10 @@ impl App<EmulatorCredentials> {
 
         FirebaseAuth::emulated(emulator_auth, &self.project_id, client)
     }
+
+    pub fn id_token_verifier(&self) -> EmulatedTokenVerifier {
+        EmulatedTokenVerifier::new(self.project_id.clone())
+    }
 }
 
 impl App<GcpCredentials> {
@@ -46,5 +54,11 @@ impl App<GcpCredentials> {
         let client = HyperApiClient::new(self.credentials.clone());
 
         FirebaseAuth::live(&self.project_id, client)
+    }
+
+    pub async fn id_token_verifier(
+        &self,
+    ) -> Result<LiveTokenVerifier<HyperClient>, Report<TokenVerificationError>> {
+        LiveTokenVerifier::new(self.project_id.clone(), build_https_client()).await
     }
 }

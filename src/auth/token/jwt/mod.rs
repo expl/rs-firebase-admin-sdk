@@ -9,8 +9,8 @@ use error::JWTError;
 use error_stack::{IntoReport, Report, ResultExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_slice, to_string, Value};
-use time::{serde::timestamp, OffsetDateTime};
 use std::collections::BTreeMap;
+use time::{serde::timestamp, OffsetDateTime};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub enum JWTAlgorithm {
