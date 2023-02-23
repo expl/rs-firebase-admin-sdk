@@ -2,6 +2,11 @@
 name = "rs-firebase-admin-sdk"
 version = "1.0.0"
 edition = "2021"
+authors = ["Kostas Petrikas"]
+description = "Firebase Admin SDK for Rust"
+readme = "../README.md"
+repository = "https://github.com/expl/rs-firebase-admin-sdk"
+license = "MIT"
 
 [dependencies]
 tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread"] }
