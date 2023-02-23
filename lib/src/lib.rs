@@ -9,11 +9,14 @@ use auth::{
     FirebaseAuth,
 };
 use client::{build_https_client, HyperApiClient, HyperClient};
-use credentials::{emulator::EmulatorCredentials, gcp::GcpCredentials};
+pub use credentials::{emulator::EmulatorCredentials, gcp::GcpCredentials};
 use error_stack::Report;
 pub use gcp_auth::CustomServiceAccount;
 use http::uri::Authority;
 use std::sync::Arc;
+
+pub type LiveAuthAdmin = FirebaseAuth<HyperApiClient<GcpCredentials>>;
+pub type EmulatorAuthAdmin = FirebaseAuth<HyperApiClient<EmulatorCredentials>>;
 
 pub struct App<CredentialsT> {
     credentials: Arc<CredentialsT>,
@@ -28,10 +31,7 @@ impl App<EmulatorCredentials> {
         }
     }
 
-    pub fn auth(
-        &self,
-        emulator_auth: Authority,
-    ) -> FirebaseAuth<HyperApiClient<EmulatorCredentials>> {
+    pub fn auth(&self, emulator_auth: Authority) -> EmulatorAuthAdmin {
         let client = HyperApiClient::new(self.credentials.clone());
 
         FirebaseAuth::emulated(emulator_auth, &self.project_id, client)
@@ -50,7 +50,7 @@ impl App<GcpCredentials> {
         }
     }
 
-    pub fn auth(&self) -> FirebaseAuth<HyperApiClient<GcpCredentials>> {
+    pub fn auth(&self) -> LiveAuthAdmin {
         let client = HyperApiClient::new(self.credentials.clone());
 
         FirebaseAuth::live(&self.project_id, client)

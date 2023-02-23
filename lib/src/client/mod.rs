@@ -27,7 +27,7 @@ pub(crate) fn build_https_client() -> HyperClient {
 }
 
 #[async_trait]
-pub trait ApiHttpClient {
+pub trait ApiHttpClient: Send + Sync {
     async fn send_request<ResponseT>(
         &self,
         uri: Uri,
