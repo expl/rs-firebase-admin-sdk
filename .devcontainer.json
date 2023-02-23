@@ -1,7 +1,7 @@
 {
     "name": "firebase-admin-sdk-test-env",
     "dockerComposeFile": "./docker/docker-compose.yaml",
-    "service": "admin-sdk",
+    "service": "firebase-admin-sdk",
     "workspaceFolder": "/sdk",
     "customizations": {
         "vscode": {
