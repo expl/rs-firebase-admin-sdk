@@ -1,6 +1,6 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Kostas Petrikas"]
 description = "Firebase Admin SDK for Rust"
@@ -9,22 +9,22 @@ repository = "https://github.com/expl/rs-firebase-admin-sdk"
 license = "MIT"
 
 [dependencies]
-tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread"] }
-error-stack = "0.2.4"
-thiserror = "1.0.38"
-async-trait = "0.1.64"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.91"
-http = "0.2.8"
-hyper = { version = "0.14.23", features = ["http1"] }
+tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+error-stack = "0.3.1"
+thiserror = "1.0.40"
+async-trait = "0.1.68"
+serde = { version = "1.0.163", features = ["derive"] }
+serde_json = "1.0.96"
+http = "0.2.9"
+hyper = { version = "0.14.26", features = ["http1"] }
 hyper-openssl = "0.9.2"
 headers = "0.3.8"
 urlencoding = "2.1.2"
 bytes = "1.4.0"
-gcp_auth = "0.7.5"
-time = { version = "0.3.17", features = ["serde"] }
-base64 = "0.21.0"
-openssl = "0.10.45"
+gcp_auth = "0.8.0"
+time = { version = "0.3.21", features = ["serde"] }
+base64 = "0.21.2"
+openssl = "0.10.52"
 
 [dev-dependencies]
 serial_test = "1.0.0"
