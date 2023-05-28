@@ -1,9 +1,6 @@
 name: Run checks
 on:
   pull_request:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -23,3 +20,5 @@ jobs:
         run: docker exec firebase-admin-sdk cargo clippy
       - name: Run tests
         run: docker exec firebase-admin-sdk cargo test --lib
+      - name: Try building everything
+        run: docker exec firebase-admin-sdk cargo build
