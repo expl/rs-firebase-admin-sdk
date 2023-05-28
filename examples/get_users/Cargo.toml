@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 rs-firebase-admin-sdk = { path = "../../lib" }
 tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread"] }
-
