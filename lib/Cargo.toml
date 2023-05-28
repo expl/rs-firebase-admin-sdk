@@ -1,8 +1,9 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 authors = ["Kostas Petrikas"]
+categories = ["authentication", "api-bindings", "asynchronous"]
 description = "Firebase Admin SDK for Rust"
 readme = "../README.md"
 repository = "https://github.com/expl/rs-firebase-admin-sdk"
