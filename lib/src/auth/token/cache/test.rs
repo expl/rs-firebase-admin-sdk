@@ -1,4 +1,4 @@
-use super::{CacheClient, HttpCache, HttpCacheError, Resource};
+use super::{CacheClient, CacheError, HttpCache, Resource};
 use async_trait::async_trait;
 use bytes::Bytes;
 use error_stack::Report;
@@ -24,7 +24,7 @@ impl CacheClientMock {
 
 #[async_trait]
 impl CacheClient for CacheClientMock {
-    type Error = HttpCacheError;
+    type Error = CacheError;
 
     async fn fetch(&self, _uri: &Uri) -> Result<Resource, Report<Self::Error>> {
         *self.calls.lock().await += 1;

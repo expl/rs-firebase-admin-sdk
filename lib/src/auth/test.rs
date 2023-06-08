@@ -1,4 +1,5 @@
 use super::import::{PasswordHash, UserImportRecord};
+use super::token::jwt::JWToken;
 use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
     OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
@@ -6,14 +7,50 @@ use super::{
 use crate::client::HyperApiClient;
 use crate::credentials::emulator::EmulatorCredentials;
 use crate::App;
-use hyper::Client;
-use serde_json::Value;
+use hyper::{Body, Client, Method, Request};
+use serde::{Deserialize, Serialize};
+use serde_json::{from_slice, to_string, Value};
 use serial_test::serial;
 use std::collections::BTreeMap;
+use time::Duration;
 use tokio;
 
 fn get_auth_service() -> FirebaseAuth<HyperApiClient<EmulatorCredentials>> {
     App::emulated("demo-firebase-project".into()).auth("emulator:9099".parse().unwrap())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LoginReq {
+    pub email: String,
+    pub password: String,
+    pub return_secure_token: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LoginResp {
+    pub id_token: String,
+}
+
+async fn _login(email: String, password: String) -> String {
+    let client = Client::new();
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("http://emulator:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=123")
+        .header("content-type", "application/json")
+        .body(Body::from(to_string(
+            &LoginReq {
+                email, password, return_secure_token: true
+            }
+        ).unwrap())).unwrap();
+
+    let resp = client.request(req).await.unwrap();
+    let body = hyper::body::to_bytes(resp.into_body()).await.unwrap();
+
+    let login_resp: LoginResp = from_slice(&body).unwrap();
+
+    login_resp.id_token
 }
 
 #[tokio::test]
@@ -478,6 +515,29 @@ async fn test_generate_email_action_link() {
         let code = all_codes.get(&link).unwrap();
         consume_oob_code(code.clone()).await;
     }
+
+    auth.clear_all_users().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn test_create_session_cookie() {
+    let auth = get_auth_service();
+
+    auth.create_user(NewUser::email_and_password(
+        "test@example.com".into(),
+        "123ABC".into(),
+    ))
+    .await
+    .unwrap();
+
+    let id_token = _login("test@example.com".into(), "123ABC".into()).await;
+    let cookie = auth
+        .create_session_cookie(id_token, Duration::hours(1))
+        .await
+        .unwrap();
+
+    JWToken::from_encoded(&cookie).expect("Got invalid session cookie token");
 
     auth.clear_all_users().await.unwrap();
 }

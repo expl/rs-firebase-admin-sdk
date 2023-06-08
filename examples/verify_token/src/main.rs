@@ -1,7 +1,7 @@
 use rs_firebase_admin_sdk::{auth::token::TokenVerifier, App, CustomServiceAccount};
 
 async fn verify_token<T: TokenVerifier>(token: &str, verifier: &T) {
-    match verifier.verify_id_token(token).await {
+    match verifier.verify_token(token).await {
         Ok(token) => {
             let user_id = token.critical_claims.sub;
             println!("Token for user {user_id} is valid!")

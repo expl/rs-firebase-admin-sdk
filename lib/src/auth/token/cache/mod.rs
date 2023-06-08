@@ -1,22 +1,25 @@
+//! Public key caching for use in efficient token verification
+
 #[cfg(test)]
 mod test;
 
 pub mod error;
 
+use super::JwtRsaPubKey;
 use crate::client::HyperClient;
 use async_trait::async_trait;
 use bytes::Bytes;
-use error::{HttpCacheError, HyperClientError};
+use error::{CacheError, HyperClientError};
 use error_stack::{IntoReport, Report, ResultExt};
 use headers::{CacheControl, HeaderMapExt};
 use http::Uri;
 use hyper::{self, body::to_bytes};
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use tokio::sync::Mutex;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Clone, Debug)]
 struct Cache<ContentT> {
@@ -112,14 +115,14 @@ where
     CacheClientT: CacheClient,
     ContentT: DeserializeOwned + Clone + Send + Sync,
 {
-    pub async fn new(client: CacheClientT, path: Uri) -> Result<Self, Report<HttpCacheError>> {
-        let resource = client.fetch(&path).await.change_context(HttpCacheError)?;
+    pub async fn new(client: CacheClientT, path: Uri) -> Result<Self, Report<CacheError>> {
+        let resource = client.fetch(&path).await.change_context(CacheError)?;
 
         let initial_cache: Cache<ContentT> = Cache::new(
             resource.max_age,
             from_slice(&resource.data)
                 .into_report()
-                .change_context(HttpCacheError)?,
+                .change_context(CacheError)?,
         );
 
         Ok(Self {
@@ -130,7 +133,7 @@ where
         })
     }
 
-    pub async fn get(&self) -> Result<ContentT, Report<HttpCacheError>> {
+    pub async fn get(&self) -> Result<ContentT, Report<CacheError>> {
         let cache = self.cache.read().await.clone();
         if cache.is_expired() {
             // to make sure only a single connection is being established to refresh the resource
@@ -147,11 +150,11 @@ where
                 .client
                 .fetch(&self.path)
                 .await
-                .change_context(HttpCacheError)?;
+                .change_context(CacheError)?;
 
             let content: ContentT = from_slice(&resource.data)
                 .into_report()
-                .change_context(HttpCacheError)?;
+                .change_context(CacheError)?;
 
             self.cache
                 .write()
@@ -162,5 +165,19 @@ where
         }
 
         Ok(cache.content)
+    }
+}
+
+pub type PubKeys = BTreeMap<String, JwtRsaPubKey>;
+
+#[async_trait]
+pub trait KeyCache {
+    async fn get_keys(&self) -> Result<PubKeys, Report<CacheError>>;
+}
+
+#[async_trait]
+impl<ClientT: CacheClient> KeyCache for HttpCache<ClientT, PubKeys> {
+    async fn get_keys(&self) -> Result<PubKeys, Report<CacheError>> {
+        self.get().await
     }
 }

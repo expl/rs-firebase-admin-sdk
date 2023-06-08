@@ -16,8 +16,7 @@ fn test_jwt_parse() {
     let (encoded_token, _) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -31,8 +30,7 @@ fn test_jwt_parse() {
     let decoded = JWToken::from_encoded(&encoded_token).unwrap();
 
     assert_eq!(decoded.header.alg, JWTAlgorithm::RS256);
-    assert_eq!(&decoded.header.kid, "123");
-    assert_eq!(&decoded.header.typ, "JWT");
+    assert_eq!(&decoded.header.kid, &Some("123".into()));
     assert_eq!(&decoded.critical_claims.exp, &valid_until);
     assert_eq!(&decoded.critical_claims.iat, &issued_at);
     assert_eq!(&decoded.critical_claims.auth_time, &issued_at);
