@@ -1,6 +1,6 @@
+use super::cache::{CacheClient, HttpCache, Resource};
 use super::crypto::generate_test_cert;
 use super::jwt::{util::generate_test_token, JWTAlgorithm, JWToken, TokenClaims, TokenHeader};
-use super::{cache::Resource, CacheClient};
 use super::{LiveTokenVerifier, TokenVerificationError};
 use async_trait::async_trait;
 use error_stack::Report;
@@ -51,8 +51,7 @@ async fn test_verify_correct_token() {
     let (encoded_token, cert) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -70,10 +69,11 @@ async fn test_verify_correct_token() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
-
-    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
         .await
         .unwrap();
+
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id, cache_client).unwrap();
 
     verifier.verify(&decoded_token).await.unwrap();
 }
@@ -92,8 +92,7 @@ async fn test_verify_incorrect_token_signature_key() {
     let (encoded_token, _) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -114,10 +113,11 @@ async fn test_verify_incorrect_token_signature_key() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
-
-    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
         .await
         .unwrap();
+
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id, cache_client).unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
@@ -145,8 +145,7 @@ async fn test_verify_token_expiration() {
     let (encoded_token, cert) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -164,11 +163,11 @@ async fn test_verify_token_expiration() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
+        .await
+        .unwrap();
 
-    let verifier =
-        LiveTokenVerifier::new(project_id.clone(), CertCacheClientMock::mock(key_map_json))
-            .await
-            .unwrap();
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id.clone(), cache_client).unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
@@ -188,8 +187,7 @@ async fn test_verify_token_expiration() {
     let (encoded_token, cert) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -207,10 +205,11 @@ async fn test_verify_token_expiration() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
-
-    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
         .await
         .unwrap();
+
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id, cache_client).unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
@@ -238,8 +237,7 @@ async fn test_verify_token_claims() {
     let (encoded_token, cert) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -257,11 +255,11 @@ async fn test_verify_token_claims() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
+        .await
+        .unwrap();
 
-    let verifier =
-        LiveTokenVerifier::new(project_id.clone(), CertCacheClientMock::mock(key_map_json))
-            .await
-            .unwrap();
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id.clone(), cache_client).unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 
@@ -278,8 +276,7 @@ async fn test_verify_token_claims() {
     let (encoded_token, cert) = generate_test_token(
         TokenHeader {
             alg: JWTAlgorithm::RS256,
-            kid: "123".into(),
-            typ: "JWT".into(),
+            kid: Some("123".into()),
         },
         TokenClaims {
             exp: valid_until,
@@ -297,10 +294,11 @@ async fn test_verify_token_claims() {
     let key_map_json: Vec<u8> = to_string(&key_map).unwrap().as_bytes().to_vec();
 
     let decoded_token = JWToken::from_encoded(&encoded_token).unwrap();
-
-    let verifier = LiveTokenVerifier::new(project_id, CertCacheClientMock::mock(key_map_json))
+    let cache_client = HttpCache::new(CertCacheClientMock::mock(key_map_json), Uri::default())
         .await
         .unwrap();
+
+    let verifier = LiveTokenVerifier::new_id_verifier(project_id, cache_client).unwrap();
 
     let result = verifier.verify(&decoded_token).await;
 

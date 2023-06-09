@@ -14,6 +14,8 @@ use time::{serde::timestamp, OffsetDateTime};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub enum JWTAlgorithm {
+    #[serde(rename = "none")]
+    NONE,
     HS256,
     HS384,
     HS512,
@@ -28,8 +30,7 @@ pub enum JWTAlgorithm {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TokenHeader {
     pub alg: JWTAlgorithm,
-    pub kid: String,
-    pub typ: String,
+    pub kid: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

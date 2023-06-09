@@ -22,7 +22,7 @@ use oob_code::{OobCodeAction, OobCodeActionLink, OobCodeActionType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::vec;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 const FIREBASE_AUTH_REST_AUTHORITY: &str = "identitytoolkit.googleapis.com";
 
@@ -102,7 +102,13 @@ pub struct UserList {
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionCookie {
     pub id_token: String,
-    pub valid_duration: u32,
+    pub valid_duration: i64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCookie {
+    pub session_cookie: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -592,6 +598,35 @@ where
             .await?;
 
         Ok(oob_link.oob_link)
+    }
+
+    /// Create session cookie
+    /// that then can be verified and parsed with `App::live().cookie_token_verifier()`
+    async fn create_session_cookie(
+        &self,
+        id_token: String,
+        expires_in: Duration,
+    ) -> Result<String, Report<ApiClientError>> {
+        let client = self.get_client();
+        let uri_builder = self.get_auth_uri_builder();
+
+        let create_cookie = CreateSessionCookie {
+            id_token,
+            valid_duration: expires_in.whole_seconds(),
+        };
+
+        let session_cookie: SessionCookie = client
+            .send_request_body(
+                uri_builder
+                    .build(FirebaseAuthRestApi::CreateSessionCookie)
+                    .change_context(ApiClientError::FailedToSendRequest)?,
+                Method::POST,
+                create_cookie,
+                &FIREBASE_AUTH_SCOPES,
+            )
+            .await?;
+
+        Ok(session_cookie.session_cookie)
     }
 }
 
