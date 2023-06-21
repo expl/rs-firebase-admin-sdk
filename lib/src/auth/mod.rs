@@ -94,6 +94,7 @@ pub struct Users {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserList {
+    #[serde(default)]
     pub users: Vec<User>,
     pub next_page_token: Option<String>,
 }

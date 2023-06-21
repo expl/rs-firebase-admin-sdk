@@ -23,7 +23,7 @@ async fn main() {
     )
     .unwrap();
 
-    let live_app = App::live("my_project".into(), gcp_service_account);
+    let live_app = App::live(gcp_service_account.into()).await.unwrap();
     let live_token_verifier = live_app.id_token_verifier().await.unwrap();
     verify_token(&oidc_token, &live_token_verifier).await;
 

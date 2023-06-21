@@ -14,7 +14,7 @@ use auth::{
 };
 use client::{build_https_client, HyperApiClient, HyperClient};
 use credentials::emulator::EmulatorCredentials;
-pub use credentials::gcp::GcpCredentials;
+pub use credentials::{error::CredentialsError, gcp::GcpCredentials};
 use error_stack::{IntoReport, Report, ResultExt};
 pub use gcp_auth::CustomServiceAccount;
 use http::uri::Authority;
@@ -55,11 +55,23 @@ impl App<EmulatorCredentials> {
 
 impl App<GcpCredentials> {
     /// Create instance of Firebase app for live project
-    pub fn live(project_id: String, service_account: CustomServiceAccount) -> Self {
-        Self {
-            credentials: Arc::new(service_account.into()),
+    pub async fn live(credentials: GcpCredentials) -> Result<Self, Report<CredentialsError>> {
+        Self::live_shared(Arc::new(credentials)).await
+    }
+
+    pub async fn live_shared(
+        credentials: Arc<GcpCredentials>,
+    ) -> Result<Self, Report<CredentialsError>> {
+        let project_id = credentials
+            .project_id()
+            .await
+            .into_report()
+            .change_context(CredentialsError::Internal)?;
+
+        Ok(Self {
+            credentials,
             project_id,
-        }
+        })
     }
 
     /// Create Firebase authentication manager

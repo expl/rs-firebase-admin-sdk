@@ -33,7 +33,7 @@ async fn main() {
     )
     .unwrap();
 
-    let live_app = App::live("my_project".into(), gcp_service_account);
+    let live_app = App::live(gcp_service_account.into()).await.unwrap();
 
     let live_auth_admin = live_app.auth();
 
