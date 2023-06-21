@@ -160,8 +160,9 @@ async fn test_list_users() {
             user_emails.push(
                 user_list
                     .users
-                    .iter()
-                    .map(|u| u.email.as_ref().unwrap().clone())
+                    .clone()
+                    .into_iter()
+                    .map(|u| u.email.unwrap())
                     .collect(),
             );
         } else {

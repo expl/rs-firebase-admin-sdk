@@ -21,7 +21,7 @@ let gcp_service_account = CustomServiceAccount::from_json(
 ).unwrap();
 
 // Create live (not emulated) context for Firebase app
-let live_app = App::live("my_project".into(), gcp_service_account);
+let live_app = App::live(gcp_service_account.into()).await.unwrap();
 
 // Create Firebase authentication admin client
 let auth_admin = live_app.auth();
