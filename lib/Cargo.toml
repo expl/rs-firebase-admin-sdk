@@ -1,6 +1,6 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 authors = ["Kostas Petrikas"]
 categories = ["authentication", "api-bindings", "asynchronous"]
@@ -10,22 +10,22 @@ repository = "https://github.com/expl/rs-firebase-admin-sdk"
 license = "MIT"
 
 [dependencies]
-tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
 error-stack = "0.3.1"
-thiserror = "1.0.40"
-async-trait = "0.1.68"
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = "1.0.96"
+thiserror = "1.0.43"
+async-trait = "0.1.71"
+serde = { version = "1.0.171", features = ["derive"] }
+serde_json = "1.0.102"
 http = "0.2.9"
-hyper = { version = "0.14.26", features = ["http1"] }
+hyper = { version = "0.14.27", features = ["http1"] }
 hyper-openssl = "0.9.2"
 headers = "0.3.8"
 urlencoding = "2.1.2"
 bytes = "1.4.0"
-gcp_auth = "0.8.0"
-time = { version = "0.3.21", features = ["serde"] }
+gcp_auth = "0.9.0"
+time = { version = "0.3.23", features = ["serde"] }
 base64 = "0.21.2"
-openssl = "0.10.52"
+openssl = "0.10.55"
 
 [dev-dependencies]
 serial_test = "1.0.0"
