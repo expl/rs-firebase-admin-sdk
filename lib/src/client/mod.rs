@@ -7,7 +7,7 @@ use crate::credentials::Credentials;
 use async_trait::async_trait;
 use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use headers::{ContentType, HeaderMapExt};
 use http::{request::Builder, StatusCode, Uri};
 use hyper::{
@@ -109,11 +109,9 @@ where
         body: &Bytes,
     ) -> Result<ResponseT, Report<ApiClientError>> {
         let json_payload_view = std::str::from_utf8(body)
-            .into_report()
             .change_context(ApiClientError::FailedToDeserializeResponse)?;
 
         let response = serde_json::from_str(json_payload_view)
-            .into_report()
             .change_context(ApiClientError::FailedToDeserializeResponse)
             .attach_printable_lazy(|| format!("JSON: {json_payload_view}"))?;
 
@@ -140,13 +138,11 @@ where
             .http_client
             .request(request)
             .await
-            .into_report()
             .change_context(ApiClientError::FailedToReceiveResponse)?;
 
         let response_status = response.status();
         let response_body = hyper::body::to_bytes(response.into_body())
             .await
-            .into_report()
             .change_context(ApiClientError::FailedToReceiveResponse)?;
 
         if response_status != StatusCode::OK {
@@ -181,7 +177,6 @@ where
             .set_credentials(&*self.credential_source, oauth_scopes)
             .await?
             .body(Body::empty())
-            .into_report()
             .change_context(ApiClientError::FailedToSendRequest)?;
 
         self.handle_response(request).await
@@ -202,7 +197,7 @@ where
         let uri_str: String = uri.to_string() + &params.into_url_params();
         let uri = uri_str
             .parse()
-            .into_report()
+            .map_err(error_stack::Report::new)
             .change_context(ApiClientError::FailedToSendRequest)?;
 
         self.send_request(uri, method, oauth_scopes).await
@@ -221,7 +216,6 @@ where
         ResponseT: DeserializeOwned + Send + Sync,
     {
         let body: Body = serde_json::to_string(&request_body)
-            .into_report()
             .change_context(ApiClientError::FailedToSerializeRequest)?
             .into();
 
@@ -232,7 +226,6 @@ where
             .set_credentials(&*self.credential_source, oauth_scopes)
             .await?
             .body(body)
-            .into_report()
             .change_context(ApiClientError::FailedToSendRequest)?;
 
         self.handle_response(request).await
@@ -250,7 +243,6 @@ where
         RequestT: Serialize + Send + Sync,
     {
         let body: Body = serde_json::to_string(&request_body)
-            .into_report()
             .change_context(ApiClientError::FailedToSerializeRequest)?
             .into();
 
@@ -261,7 +253,6 @@ where
             .set_credentials(&*self.credential_source, oauth_scopes)
             .await?
             .body(body)
-            .into_report()
             .change_context(ApiClientError::FailedToSendRequest)?;
 
         self.handle_byte_response(request).await

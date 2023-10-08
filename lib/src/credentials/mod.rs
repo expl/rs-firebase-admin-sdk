@@ -6,7 +6,7 @@ pub mod gcp;
 
 use async_trait::async_trait;
 use error::CredentialsError;
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use headers::{authorization::Bearer, Authorization, HeaderMapExt};
 use http::header::HeaderMap;
 
@@ -25,7 +25,6 @@ pub trait Credentials {
 
         headers.typed_insert(
             Authorization::<Bearer>::bearer(&token)
-                .into_report()
                 .change_context(CredentialsError::InvalidAccessToken)?,
         );
 

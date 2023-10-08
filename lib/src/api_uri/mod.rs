@@ -3,7 +3,7 @@
 pub mod error;
 
 use error::InvalidApiUriError;
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use http::uri::{Authority, Parts, PathAndQuery, Scheme, Uri};
 
 /// Firebase Auth admin REST API endpoints
@@ -83,12 +83,10 @@ impl ApiUriBuilder {
             } else {
                 String::new() + path.into()
             })
-            .into_report()
             .change_context(InvalidApiUriError)?,
         );
 
         Uri::from_parts(parts)
-            .into_report()
             .change_context(InvalidApiUriError)
     }
 }

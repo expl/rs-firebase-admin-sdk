@@ -15,7 +15,7 @@ use auth::{
 use client::{build_https_client, HyperApiClient, HyperClient};
 use credentials::emulator::EmulatorCredentials;
 pub use credentials::{error::CredentialsError, gcp::GcpCredentials};
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 pub use gcp_auth::CustomServiceAccount;
 use http::uri::Authority;
 use std::sync::Arc;
@@ -65,7 +65,6 @@ impl App<GcpCredentials> {
         let project_id = credentials
             .project_id()
             .await
-            .into_report()
             .change_context(CredentialsError::Internal)?;
 
         Ok(Self {
@@ -90,7 +89,7 @@ impl App<GcpCredentials> {
             build_https_client(),
             GOOGLE_PUB_KEY_URI
                 .parse()
-                .into_report()
+                .map_err(error_stack::Report::new)
                 .change_context(TokenVerificationError::FailedGettingKeys)?,
         )
         .await
@@ -108,7 +107,7 @@ impl App<GcpCredentials> {
             build_https_client(),
             GOOGLE_COOKIE_PUB_KEY_URI
                 .parse()
-                .into_report()
+                .map_err(error_stack::Report::new)
                 .change_context(TokenVerificationError::FailedGettingKeys)?,
         )
         .await
