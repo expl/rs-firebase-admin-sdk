@@ -10,7 +10,7 @@ use crate::client::HyperClient;
 use async_trait::async_trait;
 use bytes::Bytes;
 use error::{CacheError, HyperClientError};
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use headers::{CacheControl, HeaderMapExt};
 use http::Uri;
 use hyper::{self, body::to_bytes};
@@ -70,7 +70,6 @@ impl CacheClient for HyperClient {
         let response = self
             .get(uri.clone())
             .await
-            .into_report()
             .change_context(HyperClientError::FailedToFetch)?;
 
         let status = response.status();
@@ -82,7 +81,6 @@ impl CacheClient for HyperClient {
         let cache_header: Option<CacheControl> = response.headers().typed_get();
         let body = to_bytes(response)
             .await
-            .into_report()
             .change_context(HyperClientError::FailedToFetch)?;
 
         if let Some(cache_header) = cache_header {
@@ -120,9 +118,7 @@ where
 
         let initial_cache: Cache<ContentT> = Cache::new(
             resource.max_age,
-            from_slice(&resource.data)
-                .into_report()
-                .change_context(CacheError)?,
+            from_slice(&resource.data).change_context(CacheError)?,
         );
 
         Ok(Self {
@@ -152,9 +148,7 @@ where
                 .await
                 .change_context(CacheError)?;
 
-            let content: ContentT = from_slice(&resource.data)
-                .into_report()
-                .change_context(CacheError)?;
+            let content: ContentT = from_slice(&resource.data).change_context(CacheError)?;
 
             self.cache
                 .write()

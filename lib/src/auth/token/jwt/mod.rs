@@ -6,7 +6,7 @@ pub mod util;
 
 use base64::{self, Engine};
 use error::JWTError;
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_slice, to_string, Value};
 use std::collections::BTreeMap;
@@ -64,24 +64,19 @@ impl JWToken {
         let header: TokenHeader = from_slice(
             &base64::engine::general_purpose::URL_SAFE_NO_PAD
                 .decode(header_slice)
-                .into_report()
                 .change_context(JWTError::FailedToParse)?,
         )
-        .into_report()
         .change_context(JWTError::FailedToParse)?;
 
         let claims_slice = parts.next().ok_or(Report::new(JWTError::MissingHeader))?;
         let claims = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(claims_slice)
-            .into_report()
             .change_context(JWTError::FailedToParse)?;
 
-        let critical_claims: TokenClaims = from_slice(&claims)
-            .into_report()
-            .change_context(JWTError::FailedToParse)?;
-        let all_claims: BTreeMap<String, Value> = from_slice(&claims)
-            .into_report()
-            .change_context(JWTError::FailedToParse)?;
+        let critical_claims: TokenClaims =
+            from_slice(&claims).change_context(JWTError::FailedToParse)?;
+        let all_claims: BTreeMap<String, Value> =
+            from_slice(&claims).change_context(JWTError::FailedToParse)?;
 
         let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(
@@ -89,7 +84,6 @@ impl JWToken {
                     .next()
                     .ok_or(Report::new(JWTError::MissingSignature))?,
             )
-            .into_report()
             .change_context(JWTError::FailedToParse)?;
 
         Ok(Self {
@@ -112,17 +106,11 @@ pub fn encode_jwt<HeaderT: Serialize, PayloadT: Serialize, SignerT: JwtSigner>(
     payload: &PayloadT,
     mut signer: SignerT,
 ) -> Result<String, Report<JWTError>> {
-    let encoded_header = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
-        to_string(header)
-            .into_report()
-            .change_context(JWTError::FailedToEncode)?,
-    );
+    let encoded_header = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(to_string(header).change_context(JWTError::FailedToEncode)?);
 
-    let encoded_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
-        to_string(payload)
-            .into_report()
-            .change_context(JWTError::FailedToEncode)?,
-    );
+    let encoded_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(to_string(payload).change_context(JWTError::FailedToEncode)?);
 
     let encoded_signature = signer.sign_jwt(&encoded_header, &encoded_payload)?;
 

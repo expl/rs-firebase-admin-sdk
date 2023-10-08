@@ -1,6 +1,6 @@
 use super::jwt::{error::JWTError, JwtSigner};
 use base64::{self, Engine};
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use openssl::{
     asn1::Asn1Time,
     bn::{BigNum, MsbOption},
@@ -17,18 +17,13 @@ use std::fmt;
 impl<'a> JwtSigner for Signer<'a> {
     fn sign_jwt(&mut self, header: &str, payload: &str) -> Result<String, Report<JWTError>> {
         self.update(header.as_bytes())
-            .into_report()
             .change_context(JWTError::FailedToEncode)?;
-        self.update(b".")
-            .into_report()
-            .change_context(JWTError::FailedToEncode)?;
+        self.update(b".").change_context(JWTError::FailedToEncode)?;
         self.update(payload.as_bytes())
-            .into_report()
             .change_context(JWTError::FailedToEncode)?;
 
         let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(
             self.sign_to_vec()
-                .into_report()
                 .change_context(JWTError::FailedToEncode)?,
         );
 
@@ -47,10 +42,10 @@ impl JwtRsaPubKey {
     }
 
     pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<bool, Report<ErrorStack>> {
-        let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key).into_report()?;
-        verifier.update(payload).into_report()?;
+        let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)?;
+        verifier.update(payload)?;
 
-        verifier.verify(signature).into_report()
+        verifier.verify(signature).map_err(error_stack::Report::new)
     }
 }
 
