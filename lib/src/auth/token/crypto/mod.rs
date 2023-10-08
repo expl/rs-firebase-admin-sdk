@@ -18,8 +18,7 @@ impl<'a> JwtSigner for Signer<'a> {
     fn sign_jwt(&mut self, header: &str, payload: &str) -> Result<String, Report<JWTError>> {
         self.update(header.as_bytes())
             .change_context(JWTError::FailedToEncode)?;
-        self.update(b".")
-            .change_context(JWTError::FailedToEncode)?;
+        self.update(b".").change_context(JWTError::FailedToEncode)?;
         self.update(payload.as_bytes())
             .change_context(JWTError::FailedToEncode)?;
 

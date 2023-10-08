@@ -118,8 +118,7 @@ where
 
         let initial_cache: Cache<ContentT> = Cache::new(
             resource.max_age,
-            from_slice(&resource.data)
-                .change_context(CacheError)?,
+            from_slice(&resource.data).change_context(CacheError)?,
         );
 
         Ok(Self {
@@ -149,8 +148,7 @@ where
                 .await
                 .change_context(CacheError)?;
 
-            let content: ContentT = from_slice(&resource.data)
-                .change_context(CacheError)?;
+            let content: ContentT = from_slice(&resource.data).change_context(CacheError)?;
 
             self.cache
                 .write()

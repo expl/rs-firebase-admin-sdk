@@ -86,7 +86,6 @@ impl ApiUriBuilder {
             .change_context(InvalidApiUriError)?,
         );
 
-        Uri::from_parts(parts)
-            .change_context(InvalidApiUriError)
+        Uri::from_parts(parts).change_context(InvalidApiUriError)
     }
 }
