@@ -16,7 +16,7 @@ use client::ReqwestApiClient;
 use credentials::emulator::EmulatorCredentials;
 pub use credentials::{error::CredentialsError, gcp::GcpCredentials};
 use error_stack::{Report, ResultExt};
-pub use gcp_auth::CustomServiceAccount;
+pub use gcp_auth::AuthenticationManager;
 use std::sync::Arc;
 
 /// Default Firebase Auth admin manager

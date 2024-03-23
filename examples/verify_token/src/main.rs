@@ -1,4 +1,4 @@
-use rs_firebase_admin_sdk::{auth::token::TokenVerifier, App, CustomServiceAccount};
+use rs_firebase_admin_sdk::{auth::token::TokenVerifier, App, AuthenticationManager};
 
 async fn verify_token<T: TokenVerifier>(token: &str, verifier: &T) {
     match verifier.verify_token(token).await {
@@ -17,13 +17,8 @@ async fn main() {
     let oidc_token = std::env::var("ID_TOKEN").unwrap();
 
     // Live Firebase App
-    let gcp_service_account = CustomServiceAccount::from_json(
-        // Read JSON contents for service account key from environment
-        &std::env::var("SERVICE_ACCOUNT_KEY").unwrap(),
-    )
-    .unwrap();
-
-    let live_app = App::live(gcp_service_account.into()).await.unwrap();
+    let gcp_service_account = AuthenticationManager::new().await.unwrap();
+    let live_app = App::live(gcp_service_account).await.unwrap();
     let live_token_verifier = live_app.id_token_verifier().await.unwrap();
     verify_token(&oidc_token, &live_token_verifier).await;
 
