@@ -12,15 +12,14 @@ use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRes
 use crate::client::error::ApiClientError;
 use crate::client::ApiHttpClient;
 use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
-use async_trait::async_trait;
 pub use claims::Claims;
-use error_stack::{Report, ResultExt};
-use http::uri::{Authority, Scheme};
-use hyper::Method;
+use error_stack::Report;
+use http::Method;
 pub use import::{UserImportRecord, UserImportRecords};
 use oob_code::{OobCodeAction, OobCodeActionLink, OobCodeActionType};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::vec;
 use time::{Duration, OffsetDateTime};
 
@@ -339,13 +338,8 @@ struct UserIds {
     pub force: bool,
 }
 
-#[async_trait]
-pub trait FirebaseAuthService<ApiHttpClientT>
-where
-    Self: Send + Sync,
-    ApiHttpClientT: ApiHttpClient + Send + Sync,
-{
-    fn get_client(&self) -> &ApiHttpClientT;
+pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
+    fn get_client(&self) -> &C;
     fn get_auth_uri_builder(&self) -> &ApiUriBuilder;
 
     /// Creates a new user account with the specified properties.
@@ -358,20 +352,16 @@ where
     ///     )
     /// ).await.unwrap();
     /// ```
-    async fn create_user(&self, user: NewUser) -> Result<User, Report<ApiClientError>> {
+    fn create_user(
+        &self,
+        user: NewUser,
+    ) -> impl Future<Output = Result<User, Report<ApiClientError>>> + Send {
         let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+        let uri = self
+            .get_auth_uri_builder()
+            .build(FirebaseAuthRestApi::CreateUser);
 
-        client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthRestApi::CreateUser)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                user,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+        client.send_request_body(uri, Method::POST, user, &FIREBASE_AUTH_SCOPES)
     }
 
     /// Get first user that matches given identifier filter
@@ -384,15 +374,17 @@ where
     ///     }
     /// ).await.unwrap();
     /// ```
-    async fn get_user(
+    fn get_user(
         &self,
         indentifiers: UserIdentifiers,
-    ) -> Result<Option<User>, Report<ApiClientError>> {
-        if let Some(users) = self.get_users(indentifiers).await? {
-            return Ok(users.into_iter().next());
-        }
+    ) -> impl Future<Output = Result<Option<User>, Report<ApiClientError>>> + Send {
+        async move {
+            if let Some(users) = self.get_users(indentifiers).await? {
+                return Ok(users.into_iter().next());
+            }
 
-        Ok(None)
+            Ok(None)
+        }
     }
 
     /// Get all users that match a given identifier filter
@@ -406,25 +398,25 @@ where
     ///     }
     /// ).await.unwrap().unwrap();
     /// ```
-    async fn get_users(
+    fn get_users(
         &self,
         indentifiers: UserIdentifiers,
-    ) -> Result<Option<Vec<User>>, Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    ) -> impl Future<Output = Result<Option<Vec<User>>, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        let users: Users = client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthRestApi::GetUsers)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                indentifiers,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            let users: Users = client
+                .send_request_body(
+                    uri_builder.build(FirebaseAuthRestApi::GetUsers),
+                    Method::POST,
+                    indentifiers,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(users.users)
+            Ok(users.users)
+        }
     }
 
     /// Fetch all users in batches of `users_per_page`, to progress pass previous page into the method's `prev`.
@@ -443,73 +435,76 @@ where
     ///     }
     /// }
     /// ```
-    async fn list_users(
+    fn list_users(
         &self,
         users_per_page: usize,
         prev: Option<UserList>,
-    ) -> Result<Option<UserList>, Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
-        let mut params = vec![("maxResults".to_string(), users_per_page.clone().to_string())];
+    ) -> impl Future<Output = Result<Option<UserList>, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
+            let mut params = vec![("maxResults".to_string(), users_per_page.clone().to_string())];
 
-        if let Some(prev) = prev {
-            if let Some(next_page_token) = prev.next_page_token {
-                params.push(("nextPageToken".to_string(), next_page_token));
-            } else {
-                return Ok(None);
+            if let Some(prev) = prev {
+                if let Some(next_page_token) = prev.next_page_token {
+                    params.push(("nextPageToken".to_string(), next_page_token));
+                } else {
+                    return Ok(None);
+                }
             }
+
+            let users: UserList = client
+                .send_request_with_params(
+                    uri_builder.build(FirebaseAuthRestApi::ListUsers),
+                    params.into_iter(),
+                    Method::GET,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
+
+            Ok(Some(users))
         }
-
-        let users: UserList = client
-            .send_request_with_params(
-                uri_builder
-                    .build(FirebaseAuthRestApi::ListUsers)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                params.into_iter(),
-                Method::GET,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
-
-        Ok(Some(users))
     }
 
     /// Delete user with given ID
-    async fn delete_user(&self, uid: String) -> Result<(), Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    fn delete_user(
+        &self,
+        uid: String,
+    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        client
-            .send_request_body_empty_response(
-                uri_builder
-                    .build(FirebaseAuthRestApi::DeleteUser)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                UserId { uid },
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request_body_empty_response(
+                    uri_builder.build(FirebaseAuthRestApi::DeleteUser),
+                    Method::POST,
+                    UserId { uid },
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 
     /// Delete all users with given list of IDs
-    async fn delete_users(
+    fn delete_users(
         &self,
         uids: Vec<String>,
         force: bool,
-    ) -> Result<(), Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        client
-            .send_request_body_empty_response(
-                uri_builder
-                    .build(FirebaseAuthRestApi::DeleteUsers)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                UserIds { uids, force },
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request_body_empty_response(
+                    uri_builder.build(FirebaseAuthRestApi::DeleteUsers),
+                    Method::POST,
+                    UserIds { uids, force },
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 
     /// Update user with given changes
@@ -522,20 +517,23 @@ where
     ///     .build();
     /// auth.update_user(update).await.unwrap();
     /// ```
-    async fn update_user(&self, update: UserUpdate) -> Result<User, Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    fn update_user(
+        &self,
+        update: UserUpdate,
+    ) -> impl Future<Output = Result<User, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthRestApi::UpdateUser)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                update,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request_body(
+                    uri_builder.build(FirebaseAuthRestApi::UpdateUser),
+                    Method::POST,
+                    update,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 
     /// Create users in bulk
@@ -549,25 +547,25 @@ where
     /// ];
     /// auth.import_users(records).await.unwrap();
     /// ```
-    async fn import_users(
+    fn import_users(
         &self,
         users: Vec<UserImportRecord>,
-    ) -> Result<(), Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        client
-            .send_request_body_empty_response(
-                uri_builder
-                    .build(FirebaseAuthRestApi::ImportUsers)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                UserImportRecords { users },
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            client
+                .send_request_body_empty_response(
+                    uri_builder.build(FirebaseAuthRestApi::ImportUsers),
+                    Method::POST,
+                    UserImportRecords { users },
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(())
+            Ok(())
+        }
     }
 
     /// Send email with OOB code action
@@ -580,54 +578,54 @@ where
     ///
     /// let link = auth.generate_email_action_link(oob_action).await.unwrap();
     /// ```
-    async fn generate_email_action_link(
+    fn generate_email_action_link(
         &self,
         oob_action: OobCodeAction,
-    ) -> Result<String, Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    ) -> impl Future<Output = Result<String, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        let oob_link: OobCodeActionLink = client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthRestApi::SendOobCode)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                oob_action,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            let oob_link: OobCodeActionLink = client
+                .send_request_body(
+                    uri_builder.build(FirebaseAuthRestApi::SendOobCode),
+                    Method::POST,
+                    oob_action,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(oob_link.oob_link)
+            Ok(oob_link.oob_link)
+        }
     }
 
     /// Create session cookie
     /// that then can be verified and parsed with `App::live().cookie_token_verifier()`
-    async fn create_session_cookie(
+    fn create_session_cookie(
         &self,
         id_token: String,
         expires_in: Duration,
-    ) -> Result<String, Report<ApiClientError>> {
-        let client = self.get_client();
-        let uri_builder = self.get_auth_uri_builder();
+    ) -> impl Future<Output = Result<String, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_client();
+            let uri_builder = self.get_auth_uri_builder();
 
-        let create_cookie = CreateSessionCookie {
-            id_token,
-            valid_duration: expires_in.whole_seconds(),
-        };
+            let create_cookie = CreateSessionCookie {
+                id_token,
+                valid_duration: expires_in.whole_seconds(),
+            };
 
-        let session_cookie: SessionCookie = client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthRestApi::CreateSessionCookie)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::POST,
-                create_cookie,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            let session_cookie: SessionCookie = client
+                .send_request_body(
+                    uri_builder.build(FirebaseAuthRestApi::CreateSessionCookie),
+                    Method::POST,
+                    create_cookie,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(session_cookie.session_cookie)
+            Ok(session_cookie.session_cookie)
+        }
     }
 }
 
@@ -671,7 +669,6 @@ pub struct SmsVerificationCodes {
     pub verification_codes: Vec<SmsVerificationCode>,
 }
 
-#[async_trait]
 pub trait FirebaseEmulatorAuthService<ApiHttpClientT>
 where
     Self: Send + Sync,
@@ -681,95 +678,97 @@ where
     fn get_emulator_auth_uri_builder(&self) -> &ApiUriBuilder;
 
     /// Delete all users within emulator
-    async fn clear_all_users(&self) -> Result<(), Report<ApiClientError>> {
-        let client = self.get_emulator_client();
-        let uri_builder = self.get_emulator_auth_uri_builder();
+    fn clear_all_users(&self) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_emulator_client();
+            let uri_builder = self.get_emulator_auth_uri_builder();
 
-        let _result: BTreeMap<String, String> = client
-            .send_request(
-                uri_builder
-                    .build(FirebaseAuthEmulatorRestApi::ClearUserAccounts)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::DELETE,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            let _result: BTreeMap<String, String> = client
+                .send_request(
+                    uri_builder.build(FirebaseAuthEmulatorRestApi::ClearUserAccounts),
+                    Method::DELETE,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(())
+            Ok(())
+        }
     }
 
     /// Get current emulator configuration
-    async fn get_emulator_configuration(
+    fn get_emulator_configuration(
         &self,
-    ) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
-        let client = self.get_emulator_client();
-        let uri_builder = self.get_emulator_auth_uri_builder();
+    ) -> impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_emulator_client();
+            let uri_builder = self.get_emulator_auth_uri_builder();
 
-        client
-            .send_request(
-                uri_builder
-                    .build(FirebaseAuthEmulatorRestApi::Configuration)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::GET,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request(
+                    uri_builder.build(FirebaseAuthEmulatorRestApi::Configuration),
+                    Method::GET,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 
     /// Update emulator configuration
-    async fn patch_emulator_configuration(
+    fn patch_emulator_configuration(
         &self,
         configuration: EmulatorConfiguration,
-    ) -> Result<EmulatorConfiguration, Report<ApiClientError>> {
-        let client = self.get_emulator_client();
-        let uri_builder = self.get_emulator_auth_uri_builder();
+    ) -> impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_emulator_client();
+            let uri_builder = self.get_emulator_auth_uri_builder();
 
-        client
-            .send_request_body(
-                uri_builder
-                    .build(FirebaseAuthEmulatorRestApi::Configuration)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::PATCH,
-                configuration,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request_body(
+                    uri_builder.build(FirebaseAuthEmulatorRestApi::Configuration),
+                    Method::PATCH,
+                    configuration,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 
     /// Fetch all OOB codes within emulator
-    async fn get_oob_codes(&self) -> Result<Vec<OobCode>, Report<ApiClientError>> {
-        let client = self.get_emulator_client();
-        let uri_builder = self.get_emulator_auth_uri_builder();
+    fn get_oob_codes(
+        &self,
+    ) -> impl Future<Output = Result<Vec<OobCode>, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_emulator_client();
+            let uri_builder = self.get_emulator_auth_uri_builder();
 
-        let oob_codes: OobCodes = client
-            .send_request(
-                uri_builder
-                    .build(FirebaseAuthEmulatorRestApi::OobCodes)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::GET,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await?;
+            let oob_codes: OobCodes = client
+                .send_request(
+                    uri_builder.build(FirebaseAuthEmulatorRestApi::OobCodes),
+                    Method::GET,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await?;
 
-        Ok(oob_codes.oob_codes)
+            Ok(oob_codes.oob_codes)
+        }
     }
 
     /// Fetch all SMS codes within emulator
-    async fn get_sms_verification_codes(
+    fn get_sms_verification_codes(
         &self,
-    ) -> Result<SmsVerificationCodes, Report<ApiClientError>> {
-        let client = self.get_emulator_client();
-        let uri_builder = self.get_emulator_auth_uri_builder();
+    ) -> impl Future<Output = Result<SmsVerificationCodes, Report<ApiClientError>>> + Send {
+        async move {
+            let client = self.get_emulator_client();
+            let uri_builder = self.get_emulator_auth_uri_builder();
 
-        client
-            .send_request(
-                uri_builder
-                    .build(FirebaseAuthEmulatorRestApi::SmsVerificationCodes)
-                    .change_context(ApiClientError::FailedToSendRequest)?,
-                Method::GET,
-                &FIREBASE_AUTH_SCOPES,
-            )
-            .await
+            client
+                .send_request(
+                    uri_builder.build(FirebaseAuthEmulatorRestApi::SmsVerificationCodes),
+                    Method::GET,
+                    &FIREBASE_AUTH_SCOPES,
+                )
+                .await
+        }
     }
 }
 
@@ -784,35 +783,27 @@ where
     ApiHttpClientT: ApiHttpClient + Send + Sync,
 {
     /// Create Firebase Authentication manager for emulator
-    pub fn emulated(emulator_auth: Authority, project_id: &str, client: ApiHttpClientT) -> Self {
+    pub fn emulated(emulator_url: String, project_id: &str, client: ApiHttpClientT) -> Self {
+        let fb_auth_root = emulator_url.clone()
+            + &format!("/{FIREBASE_AUTH_REST_AUTHORITY}/v1/projects/{project_id}");
+        let fb_emu_root = emulator_url + &format!("/emulator/v1/projects/{project_id}");
+
         Self {
             client,
-            auth_uri_builder: ApiUriBuilder::new(
-                Scheme::HTTP,
-                emulator_auth.clone(),
-                Some(format!(
-                    "/{FIREBASE_AUTH_REST_AUTHORITY}/v1/projects/{project_id}"
-                )),
-            ),
-            emulator_auth_uri_builder: Some(ApiUriBuilder::new(
-                Scheme::HTTP,
-                emulator_auth,
-                Some(format!("/emulator/v1/projects/{project_id}")),
-            )),
+            auth_uri_builder: ApiUriBuilder::new(fb_auth_root),
+            emulator_auth_uri_builder: Some(ApiUriBuilder::new(fb_emu_root)),
         }
     }
 
     /// Create Firebase Authentication manager for live project
     pub fn live(project_id: &str, client: ApiHttpClientT) -> Self {
+        let fb_auth_root = "https://".to_string()
+            + FIREBASE_AUTH_REST_AUTHORITY
+            + &format!("/v1/projects/{project_id}");
+
         Self {
             client,
-            auth_uri_builder: ApiUriBuilder::new(
-                Scheme::HTTPS,
-                FIREBASE_AUTH_REST_AUTHORITY
-                    .parse()
-                    .expect("Failed parsing auth service authority"),
-                Some(format!("/v1/projects/{project_id}")),
-            ),
+            auth_uri_builder: ApiUriBuilder::new(fb_auth_root),
             emulator_auth_uri_builder: None,
         }
     }

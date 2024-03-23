@@ -1,4 +1,4 @@
-use hyper::StatusCode;
+use reqwest::StatusCode;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -6,7 +6,7 @@ use thiserror::Error;
 pub struct CacheError;
 
 #[derive(Error, Debug, Clone)]
-pub enum HyperClientError {
+pub enum ClientError {
     #[error("Failed to fetch HTTP resource")]
     FailedToFetch,
     #[error("Unexpected HTTP status code {0}")]

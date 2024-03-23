@@ -4,30 +4,34 @@ pub mod emulator;
 pub mod error;
 pub mod gcp;
 
-use async_trait::async_trait;
 use error::CredentialsError;
 use error_stack::{Report, ResultExt};
 use headers::{authorization::Bearer, Authorization, HeaderMapExt};
 use http::header::HeaderMap;
+use std::future::Future;
 
-#[async_trait]
-pub trait Credentials {
+pub trait Credentials: Send + Sync + 'static {
     /// Implementation for generation of OAuth2 access token
-    async fn get_access_token(&self, scopes: &[&str]) -> Result<String, Report<CredentialsError>>;
+    fn get_access_token(
+        &self,
+        scopes: &[&str],
+    ) -> impl Future<Output = Result<String, Report<CredentialsError>>> + Send;
 
     /// Set credentials for a API request, by default use bearer authorization for passing access token
-    async fn set_credentials(
+    fn set_credentials(
         &self,
         headers: &mut HeaderMap,
         scopes: &[&str],
-    ) -> Result<(), Report<CredentialsError>> {
-        let token = self.get_access_token(scopes).await?;
+    ) -> impl Future<Output = Result<(), Report<CredentialsError>>> + Send {
+        async move {
+            let token = self.get_access_token(scopes).await?;
 
-        headers.typed_insert(
-            Authorization::<Bearer>::bearer(&token)
-                .change_context(CredentialsError::InvalidAccessToken)?,
-        );
+            headers.typed_insert(
+                Authorization::<Bearer>::bearer(&token)
+                    .change_context(CredentialsError::InvalidAccessToken)?,
+            );
 
-        Ok(())
+            Ok(())
+        }
     }
 }
