@@ -4,19 +4,18 @@ use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
     OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
 };
-use crate::client::HyperApiClient;
+use crate::client::ReqwestApiClient;
 use crate::credentials::emulator::EmulatorCredentials;
 use crate::App;
-use hyper::{Body, Client, Method, Request};
 use serde::{Deserialize, Serialize};
-use serde_json::{from_slice, to_string, Value};
+use serde_json::Value;
 use serial_test::serial;
 use std::collections::BTreeMap;
 use time::Duration;
 use tokio;
 
-fn get_auth_service() -> FirebaseAuth<HyperApiClient<EmulatorCredentials>> {
-    App::emulated("demo-firebase-project".into()).auth("emulator:9099".parse().unwrap())
+fn get_auth_service() -> FirebaseAuth<ReqwestApiClient<EmulatorCredentials>> {
+    App::emulated("demo-firebase-project".into()).auth("http://emulator:9099".parse().unwrap())
 }
 
 #[derive(Serialize)]
@@ -34,21 +33,19 @@ struct LoginResp {
 }
 
 async fn _login(email: String, password: String) -> String {
-    let client = Client::new();
-    let req = Request::builder()
-        .method(Method::POST)
-        .uri("http://emulator:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=123")
+    let client = reqwest::Client::builder().build().unwrap();
+    let resp = client.post("http://emulator:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=123")
         .header("content-type", "application/json")
-        .body(Body::from(to_string(
+        .json(
             &LoginReq {
                 email, password, return_secure_token: true
             }
-        ).unwrap())).unwrap();
+        )
+        .send()
+        .await
+        .unwrap();
 
-    let resp = client.request(req).await.unwrap();
-    let body = hyper::body::to_bytes(resp.into_body()).await.unwrap();
-
-    let login_resp: LoginResp = from_slice(&body).unwrap();
+    let login_resp: LoginResp = resp.json().await.unwrap();
 
     login_resp.id_token
 }
@@ -458,10 +455,14 @@ async fn consume_oob_code(code: OobCode) {
         oob_link += "&newPassword=567ABC";
     }
 
-    let resp = Client::new().get(oob_link.parse().unwrap()).await.unwrap();
+    println!("URL: {oob_link}");
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client.get(oob_link).send().await.unwrap();
     if resp.status().is_server_error() || resp.status().is_client_error() {
-        let body = hyper::body::to_bytes(resp).await.unwrap();
-        let body_str = std::str::from_utf8(body.as_ref()).unwrap();
+        let body_str = resp.text().await.unwrap();
 
         panic!("{body_str}")
     }
@@ -512,7 +513,7 @@ async fn test_generate_email_action_link() {
         .map(|c| (c.oob_link.clone(), c))
         .collect();
 
-    for link in vec![link_pwreset, link_email_signin, link_verify_email] {
+    for link in [link_pwreset, link_email_signin, link_verify_email] {
         let code = all_codes.get(&link).unwrap();
         consume_oob_code(code.clone()).await;
     }

@@ -6,12 +6,12 @@ pub mod crypto;
 pub mod error;
 pub mod jwt;
 
-use async_trait::async_trait;
 use cache::KeyCache;
 use crypto::JwtRsaPubKey;
 use error::TokenVerificationError;
 use error_stack::{Report, ResultExt};
 use jwt::{JWTAlgorithm, JWToken};
+use std::future::Future;
 use time::{Duration, OffsetDateTime};
 
 const GOOGLE_ID_TOKEN_ISSUER_PREFIX: &str = "https://securetoken.google.com/";
@@ -21,10 +21,11 @@ pub(crate) const GOOGLE_PUB_KEY_URI: &str =
 pub(crate) const GOOGLE_COOKIE_PUB_KEY_URI: &str =
     "https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys";
 
-#[async_trait]
 pub trait TokenVerifier: Sized + Sync + Send {
-    async fn verify_token(&self, id_token: &str)
-        -> Result<JWToken, Report<TokenVerificationError>>;
+    fn verify_token(
+        &self,
+        id_token: &str,
+    ) -> impl Future<Output = Result<JWToken, Report<TokenVerificationError>>> + Send;
 }
 
 pub struct EmulatedTokenVerifier {
@@ -41,7 +42,6 @@ impl EmulatedTokenVerifier {
     }
 }
 
-#[async_trait]
 impl TokenVerifier for EmulatedTokenVerifier {
     async fn verify_token(
         &self,
@@ -62,7 +62,6 @@ pub struct LiveTokenVerifier<CacheT: KeyCache> {
     key_cache: CacheT,
 }
 
-#[async_trait]
 impl<CacheT: KeyCache + Send + Sync> TokenVerifier for LiveTokenVerifier<CacheT> {
     async fn verify_token(
         &self,

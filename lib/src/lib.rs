@@ -12,18 +12,17 @@ use auth::{
     },
     FirebaseAuth,
 };
-use client::{build_https_client, HyperApiClient, HyperClient};
+use client::ReqwestApiClient;
 use credentials::emulator::EmulatorCredentials;
 pub use credentials::{error::CredentialsError, gcp::GcpCredentials};
 use error_stack::{Report, ResultExt};
 pub use gcp_auth::CustomServiceAccount;
-use http::uri::Authority;
 use std::sync::Arc;
 
 /// Default Firebase Auth admin manager
-pub type LiveAuthAdmin = FirebaseAuth<HyperApiClient<GcpCredentials>>;
+pub type LiveAuthAdmin = FirebaseAuth<ReqwestApiClient<GcpCredentials>>;
 /// Default Firebase Auth Emulator admin manager
-pub type EmulatorAuthAdmin = FirebaseAuth<HyperApiClient<EmulatorCredentials>>;
+pub type EmulatorAuthAdmin = FirebaseAuth<ReqwestApiClient<EmulatorCredentials>>;
 
 /// Base privileged manager for Firebase
 pub struct App<CredentialsT> {
@@ -41,10 +40,10 @@ impl App<EmulatorCredentials> {
     }
 
     /// Firebase authentication manager for emulator
-    pub fn auth(&self, emulator_auth: Authority) -> EmulatorAuthAdmin {
-        let client = HyperApiClient::new(self.credentials.clone());
+    pub fn auth(&self, emulator_url: String) -> EmulatorAuthAdmin {
+        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
 
-        FirebaseAuth::emulated(emulator_auth, &self.project_id, client)
+        FirebaseAuth::emulated(emulator_url, &self.project_id, client)
     }
 
     /// OIDC token verifier for emulator
@@ -75,7 +74,7 @@ impl App<GcpCredentials> {
 
     /// Create Firebase authentication manager
     pub fn auth(&self) -> LiveAuthAdmin {
-        let client = HyperApiClient::new(self.credentials.clone());
+        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
 
         FirebaseAuth::live(&self.project_id, client)
     }
@@ -83,10 +82,12 @@ impl App<GcpCredentials> {
     /// Create OIDC token verifier
     pub async fn id_token_verifier(
         &self,
-    ) -> Result<LiveTokenVerifier<HttpCache<HyperClient, PubKeys>>, Report<TokenVerificationError>>
-    {
+    ) -> Result<
+        LiveTokenVerifier<HttpCache<reqwest::Client, PubKeys>>,
+        Report<TokenVerificationError>,
+    > {
         let cache_client = HttpCache::new(
-            build_https_client(),
+            reqwest::Client::new(),
             GOOGLE_PUB_KEY_URI
                 .parse()
                 .map_err(error_stack::Report::new)
@@ -101,10 +102,12 @@ impl App<GcpCredentials> {
     /// Create cookie token verifier
     pub async fn cookie_token_verifier(
         &self,
-    ) -> Result<LiveTokenVerifier<HttpCache<HyperClient, PubKeys>>, Report<TokenVerificationError>>
-    {
+    ) -> Result<
+        LiveTokenVerifier<HttpCache<reqwest::Client, PubKeys>>,
+        Report<TokenVerificationError>,
+    > {
         let cache_client = HttpCache::new(
-            build_https_client(),
+            reqwest::Client::new(),
             GOOGLE_COOKIE_PUB_KEY_URI
                 .parse()
                 .map_err(error_stack::Report::new)

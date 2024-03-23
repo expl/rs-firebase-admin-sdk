@@ -6,17 +6,15 @@ mod test;
 pub mod error;
 
 use super::JwtRsaPubKey;
-use crate::client::HyperClient;
-use async_trait::async_trait;
 use bytes::Bytes;
-use error::{CacheError, HyperClientError};
+use error::{CacheError, ClientError};
 use error_stack::{Report, ResultExt};
 use headers::{CacheControl, HeaderMapExt};
-use http::Uri;
-use hyper::{self, body::to_bytes};
+use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::{Mutex, RwLock};
@@ -51,7 +49,6 @@ pub struct Resource {
     pub max_age: Duration,
 }
 
-#[async_trait]
 pub trait CacheClient: Sized + Send + Sync
 where
     Self::Error: std::error::Error + Send + Sync + 'static,
@@ -59,29 +56,33 @@ where
     type Error;
 
     /// Simple async interface to fetch data and its TTL for an URI
-    async fn fetch(&self, uri: &Uri) -> Result<Resource, Report<Self::Error>>;
+    fn fetch(
+        &self,
+        uri: &str,
+    ) -> impl Future<Output = Result<Resource, Report<Self::Error>>> + Send;
 }
 
-#[async_trait]
-impl CacheClient for HyperClient {
-    type Error = HyperClientError;
+impl CacheClient for Client {
+    type Error = ClientError;
 
-    async fn fetch(&self, uri: &Uri) -> Result<Resource, Report<Self::Error>> {
+    async fn fetch(&self, uri: &str) -> Result<Resource, Report<Self::Error>> {
         let response = self
-            .get(uri.clone())
+            .get(uri)
+            .send()
             .await
-            .change_context(HyperClientError::FailedToFetch)?;
+            .change_context(ClientError::FailedToFetch)?;
 
         let status = response.status();
 
         if !status.is_success() {
-            return Err(Report::new(HyperClientError::BadHttpResponse(status)));
+            return Err(Report::new(ClientError::BadHttpResponse(status)));
         }
 
         let cache_header: Option<CacheControl> = response.headers().typed_get();
-        let body = to_bytes(response)
+        let body = response
+            .bytes()
             .await
-            .change_context(HyperClientError::FailedToFetch)?;
+            .change_context(ClientError::FailedToFetch)?;
 
         if let Some(cache_header) = cache_header {
             let ttl = cache_header
@@ -103,7 +104,7 @@ impl CacheClient for HyperClient {
 
 pub struct HttpCache<CacheClientT, ContentT> {
     client: CacheClientT,
-    path: Uri,
+    path: String,
     cache: Arc<RwLock<Cache<ContentT>>>,
     refresh: Mutex<()>,
 }
@@ -113,7 +114,7 @@ where
     CacheClientT: CacheClient,
     ContentT: DeserializeOwned + Clone + Send + Sync,
 {
-    pub async fn new(client: CacheClientT, path: Uri) -> Result<Self, Report<CacheError>> {
+    pub async fn new(client: CacheClientT, path: String) -> Result<Self, Report<CacheError>> {
         let resource = client.fetch(&path).await.change_context(CacheError)?;
 
         let initial_cache: Cache<ContentT> = Cache::new(
@@ -164,14 +165,12 @@ where
 
 pub type PubKeys = BTreeMap<String, JwtRsaPubKey>;
 
-#[async_trait]
 pub trait KeyCache {
-    async fn get_keys(&self) -> Result<PubKeys, Report<CacheError>>;
+    fn get_keys(&self) -> impl Future<Output = Result<PubKeys, Report<CacheError>>> + Send;
 }
 
-#[async_trait]
 impl<ClientT: CacheClient> KeyCache for HttpCache<ClientT, PubKeys> {
-    async fn get_keys(&self) -> Result<PubKeys, Report<CacheError>> {
-        self.get().await
+    fn get_keys(&self) -> impl Future<Output = Result<PubKeys, Report<CacheError>>> + Send {
+        self.get()
     }
 }

@@ -1,8 +1,6 @@
 use super::{CacheClient, CacheError, HttpCache, Resource};
-use async_trait::async_trait;
 use bytes::Bytes;
 use error_stack::Report;
-use http::Uri;
 use serde_json::to_string;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,11 +20,10 @@ impl CacheClientMock {
     }
 }
 
-#[async_trait]
 impl CacheClient for CacheClientMock {
     type Error = CacheError;
 
-    async fn fetch(&self, _uri: &Uri) -> Result<Resource, Report<Self::Error>> {
+    async fn fetch(&self, _uri: &str) -> Result<Resource, Report<Self::Error>> {
         *self.calls.lock().await += 1;
 
         Ok(self.response.clone())
