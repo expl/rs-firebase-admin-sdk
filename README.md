@@ -12,11 +12,11 @@ The Firebase Admin Rust SDK enables access to Firebase services from privileged 
 use rs_firebase_admin_sdk::{
     auth::{FirebaseAuthService, UserIdentifiers},
     client::ApiHttpClient,
-    App, AuthenticationManager,
+    App, credentials_provider,
 };
 
 // Load your GCP SA from env, see https://crates.io/crates/gcp_auth for more details
-let gcp_service_account = AuthenticationManager::new().await.unwrap();
+let gcp_service_account = credentials_provider().await.unwrap();
 // Create live (not emulated) context for Firebase app
 let live_app = App::live(gcp_service_account.into()).await.unwrap();
 

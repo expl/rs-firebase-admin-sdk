@@ -14,19 +14,21 @@ use auth::{
 };
 use client::ReqwestApiClient;
 use credentials::emulator::EmulatorCredentials;
-pub use credentials::{error::CredentialsError, gcp::GcpCredentials};
+pub use credentials::{error::CredentialsError, Credentials};
 use error_stack::{Report, ResultExt};
-pub use gcp_auth::AuthenticationManager;
+pub use gcp_auth::provider as credentials_provider;
+use gcp_auth::TokenProvider;
 use std::sync::Arc;
 
 /// Default Firebase Auth admin manager
+pub type GcpCredentials = Arc<dyn TokenProvider>;
 pub type LiveAuthAdmin = FirebaseAuth<ReqwestApiClient<GcpCredentials>>;
 /// Default Firebase Auth Emulator admin manager
 pub type EmulatorAuthAdmin = FirebaseAuth<ReqwestApiClient<EmulatorCredentials>>;
 
 /// Base privileged manager for Firebase
 pub struct App<CredentialsT> {
-    credentials: Arc<CredentialsT>,
+    credentials: CredentialsT,
     project_id: String,
 }
 
@@ -34,7 +36,7 @@ impl App<EmulatorCredentials> {
     /// Firebase app backend by emulator
     pub fn emulated(project_id: String) -> Self {
         Self {
-            credentials: Arc::new(EmulatorCredentials {}),
+            credentials: EmulatorCredentials {},
             project_id,
         }
     }
@@ -55,16 +57,17 @@ impl App<EmulatorCredentials> {
 impl App<GcpCredentials> {
     /// Create instance of Firebase app for live project
     pub async fn live(credentials: GcpCredentials) -> Result<Self, Report<CredentialsError>> {
-        Self::live_shared(Arc::new(credentials)).await
+        Self::live_shared(credentials).await
     }
 
     pub async fn live_shared(
-        credentials: Arc<GcpCredentials>,
+        credentials: GcpCredentials,
     ) -> Result<Self, Report<CredentialsError>> {
         let project_id = credentials
             .project_id()
             .await
-            .change_context(CredentialsError::Internal)?;
+            .change_context(CredentialsError::Internal)?
+            .to_string();
 
         Ok(Self {
             credentials,
