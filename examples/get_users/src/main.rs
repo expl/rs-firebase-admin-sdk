@@ -1,7 +1,7 @@
 use rs_firebase_admin_sdk::{
     auth::{FirebaseAuthService, UserList},
     client::ApiHttpClient,
-    App, AuthenticationManager,
+    credentials_provider, App,
 };
 
 /// Generic method to print out all live users, fetch 10 at a time
@@ -27,7 +27,7 @@ where
 #[tokio::main]
 async fn main() {
     // Live Firebase App
-    let gcp_service_account = AuthenticationManager::new().await.unwrap();
+    let gcp_service_account = credentials_provider().await.unwrap();
 
     let live_app = App::live(gcp_service_account).await.unwrap();
 

@@ -1,6 +1,6 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "2.0.0"
+version = "2.1.0"
 rust-version = "1.75"
 edition = "2021"
 authors = ["Kostas Petrikas"]
@@ -14,7 +14,7 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.38", features = ["sync"], default-features = false }
 error-stack = "0.4"
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -24,10 +24,11 @@ headers = "0.4"
 reqwest = { version = "0.12", features = ["default-tls", "charset", "json"], default-features = false }
 urlencoding = "2.1"
 bytes = "1"
-gcp_auth = "0.11"
+gcp_auth = "0.12"
 time = { version = "0.3", features = ["serde"] }
 base64 = "0.22"
 openssl = "0.10"
 
 [dev-dependencies]
+tokio = { version = "1.38", features = ["macros", "rt-multi-thread"] }
 serial_test = "3.0.0"

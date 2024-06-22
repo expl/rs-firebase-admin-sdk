@@ -11,7 +11,6 @@ use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 use std::future::Future;
 use std::iter::Iterator;
-use std::sync::Arc;
 use url_params::UrlParams;
 
 pub trait ApiHttpClient: Send + Sync + 'static {
@@ -74,11 +73,11 @@ impl<T: Serialize> SetReqBody<T> for reqwest::RequestBuilder {
 
 pub struct ReqwestApiClient<C> {
     client: reqwest::Client,
-    credentials: Arc<C>,
+    credentials: C,
 }
 
 impl<C: Credentials> ReqwestApiClient<C> {
-    pub fn new(client: reqwest::Client, credentials: Arc<C>) -> Self {
+    pub fn new(client: reqwest::Client, credentials: C) -> Self {
         Self {
             client,
             credentials,
