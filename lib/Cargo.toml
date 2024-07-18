@@ -1,6 +1,6 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "2.1.0"
+version = "2.2.0"
 rust-version = "1.75"
 edition = "2021"
 authors = ["Kostas Petrikas"]
