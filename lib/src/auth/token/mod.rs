@@ -16,8 +16,11 @@ use time::{Duration, OffsetDateTime};
 
 const GOOGLE_ID_TOKEN_ISSUER_PREFIX: &str = "https://securetoken.google.com/";
 const GOOGLE_COOKIE_ISSUER_PREFIX: &str = "https://session.firebase.google.com/";
+
+#[cfg(feature = "tokens")]
 pub(crate) const GOOGLE_PUB_KEY_URI: &str =
     "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
+#[cfg(feature = "tokens")]
 pub(crate) const GOOGLE_COOKIE_PUB_KEY_URI: &str =
     "https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys";
 
