@@ -1,4 +1,5 @@
 use super::import::{PasswordHash, UserImportRecord};
+#[cfg(feature = "tokens")]
 use super::token::jwt::JWToken;
 use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
@@ -11,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serial_test::serial;
 use std::collections::BTreeMap;
+
+#[cfg(feature = "tokens")]
 use time::Duration;
 use tokio;
 
@@ -29,6 +32,7 @@ struct LoginReq {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LoginResp {
+    #[allow(dead_code)]
     pub id_token: String,
 }
 
@@ -521,6 +525,7 @@ async fn test_generate_email_action_link() {
     auth.clear_all_users().await.unwrap();
 }
 
+#[cfg(feature = "tokens")]
 #[tokio::test]
 #[serial]
 async fn test_create_session_cookie() {

@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rs-firebase-admin-sdk = { path = "../../lib" }
+rs-firebase-admin-sdk = { path = "../../lib", features = ["tokens"] }
 tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread"] }
