@@ -74,13 +74,15 @@ impl<T: Serialize> SetReqBody<T> for reqwest::RequestBuilder {
 pub struct ReqwestApiClient<C> {
     client: reqwest::Client,
     credentials: C,
+    project_id: String,
 }
 
 impl<C: Credentials> ReqwestApiClient<C> {
-    pub fn new(client: reqwest::Client, credentials: C) -> Self {
+    pub fn new(client: reqwest::Client, credentials: C, project_id: String) -> Self {
         Self {
             client,
             credentials,
+            project_id,
         }
     }
 
@@ -117,6 +119,7 @@ impl<C: Credentials> ReqwestApiClient<C> {
                     .change_context(ApiClientError::FailedToSendRequest)?,
             )
             .set_request_body(body)
+            .header("x-goog-user-project", &self.project_id)
             .send()
             .await
             .change_context(ApiClientError::FailedToSendRequest)

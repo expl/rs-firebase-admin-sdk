@@ -3,6 +3,7 @@ The Firebase Admin Rust SDK enables access to Firebase services from privileged 
 
 # Currently supports
 * GCP service accounts
+* `gcloud`'s access token
 * User and custom authentication management
 * Firebase emulator integration and management
 * Firebase OIDC token and session cookie verification using asynchronous public certificate cache

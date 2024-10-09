@@ -43,7 +43,11 @@ impl App<EmulatorCredentials> {
 
     /// Firebase authentication manager for emulator
     pub fn auth(&self, emulator_url: String) -> EmulatorAuthAdmin {
-        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
+        let client = ReqwestApiClient::new(
+            reqwest::Client::new(),
+            self.credentials.clone(),
+            self.project_id.clone(),
+        );
 
         FirebaseAuth::emulated(emulator_url, &self.project_id, client)
     }
@@ -78,7 +82,11 @@ impl App<GcpCredentials> {
 
     /// Create Firebase authentication manager
     pub fn auth(&self) -> LiveAuthAdmin {
-        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
+        let client = ReqwestApiClient::new(
+            reqwest::Client::new(),
+            self.credentials.clone(),
+            self.project_id.clone(),
+        );
 
         FirebaseAuth::live(&self.project_id, client)
     }

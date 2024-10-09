@@ -26,7 +26,13 @@ where
 
 #[tokio::main]
 async fn main() {
-    // Live Firebase App
+    // Live Firebase App, credentials are loaded from service account or gcloud's token.
+    // For `gcloud` authentication:
+    // ```
+    // gcloud auth login
+    // gcloud config set project <your-project>
+    //```
+    // Please note that the caller must have serviceusage.services.use role.
     let gcp_service_account = credentials_provider().await.unwrap();
 
     let live_app = App::live(gcp_service_account).await.unwrap();
