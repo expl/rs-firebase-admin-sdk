@@ -11,4 +11,11 @@ impl Credentials for GcpCredentials {
 
         Ok(token.as_str().into())
     }
+
+    async fn get_project_id(&self) -> Result<String, Report<CredentialsError>> {
+        self.project_id()
+            .await
+            .change_context(CredentialsError::Internal)
+            .map(|t| (*t).to_owned())
+    }
 }

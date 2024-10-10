@@ -36,7 +36,7 @@ impl App<EmulatorCredentials> {
     /// Firebase app backend by emulator
     pub fn emulated(project_id: String) -> Self {
         Self {
-            credentials: EmulatorCredentials {},
+            credentials: EmulatorCredentials::default(),
             project_id,
         }
     }
