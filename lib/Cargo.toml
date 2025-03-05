@@ -1,7 +1,7 @@
 [package]
 name = "rs-firebase-admin-sdk"
 version = "2.4.0"
-rust-version = "1.75"
+rust-version = "1.80"
 edition = "2021"
 authors = ["Kostas Petrikas"]
 categories = ["authentication", "api-bindings", "asynchronous"]
