@@ -11,8 +11,8 @@ pub mod oob_code;
 pub mod token;
 
 use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRestApi};
-use crate::client::error::ApiClientError;
 use crate::client::ApiHttpClient;
+use crate::client::error::ApiClientError;
 use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
 pub use claims::Claims;
 use error_stack::Report;

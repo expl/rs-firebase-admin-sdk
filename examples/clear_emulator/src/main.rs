@@ -1,4 +1,4 @@
-use rs_firebase_admin_sdk::{auth::FirebaseEmulatorAuthService, client::ApiHttpClient, App};
+use rs_firebase_admin_sdk::{App, auth::FirebaseEmulatorAuthService, client::ApiHttpClient};
 
 async fn clear_emulator<A, C>(auth_emulator_admin: &A)
 where

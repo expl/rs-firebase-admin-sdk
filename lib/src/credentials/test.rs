@@ -1,5 +1,5 @@
-use super::{emulator::EmulatorCredentials, Credentials, GoogleUserProject};
-use headers::{authorization::Bearer, Authorization, HeaderMapExt};
+use super::{Credentials, GoogleUserProject, emulator::EmulatorCredentials};
+use headers::{Authorization, HeaderMapExt, authorization::Bearer};
 use http::header::{HeaderMap, HeaderValue};
 
 #[tokio::test]

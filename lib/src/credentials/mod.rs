@@ -9,7 +9,7 @@ mod test;
 
 use error::CredentialsError;
 use error_stack::{Report, ResultExt};
-use headers::{authorization::Bearer, Authorization, HeaderMapExt};
+use headers::{Authorization, HeaderMapExt, authorization::Bearer};
 use headers::{Header, HeaderName, HeaderValue};
 use http::header::HeaderMap;
 use std::future::Future;

@@ -8,16 +8,16 @@ use auth::FirebaseAuth;
 
 #[cfg(feature = "tokens")]
 use auth::token::{
+    EmulatedTokenVerifier, GOOGLE_COOKIE_PUB_KEY_URI, GOOGLE_PUB_KEY_URI, LiveTokenVerifier,
     cache::{HttpCache, PubKeys},
     error::TokenVerificationError,
-    EmulatedTokenVerifier, LiveTokenVerifier, GOOGLE_COOKIE_PUB_KEY_URI, GOOGLE_PUB_KEY_URI,
 };
 use client::ReqwestApiClient;
 use credentials::emulator::EmulatorCredentials;
-pub use credentials::{error::CredentialsError, Credentials};
+pub use credentials::{Credentials, error::CredentialsError};
 use error_stack::{Report, ResultExt};
-pub use gcp_auth::provider as credentials_provider;
 use gcp_auth::TokenProvider;
+pub use gcp_auth::provider as credentials_provider;
 use std::sync::Arc;
 
 /// Default Firebase Auth admin manager

@@ -21,7 +21,7 @@ impl From<StrEpochMs> for OffsetDateTime {
 
 struct StrEpochMsVisitor;
 
-impl<'de> Visitor<'de> for StrEpochMsVisitor {
+impl Visitor<'_> for StrEpochMsVisitor {
     type Value = StrEpochMs;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -69,7 +69,7 @@ impl From<StrEpochSec> for OffsetDateTime {
 
 struct StrEpochSecVisitor;
 
-impl<'de> Visitor<'de> for StrEpochSecVisitor {
+impl Visitor<'_> for StrEpochSecVisitor {
     type Value = StrEpochSec;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -117,7 +117,7 @@ impl From<I128EpochMs> for OffsetDateTime {
 
 struct I128EpochMsVisitor;
 
-impl<'de> Visitor<'de> for I128EpochMsVisitor {
+impl Visitor<'_> for I128EpochMsVisitor {
     type Value = I128EpochMs;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

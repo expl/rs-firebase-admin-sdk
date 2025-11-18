@@ -5,9 +5,9 @@ use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
     OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
 };
+use crate::App;
 use crate::client::ReqwestApiClient;
 use crate::credentials::emulator::EmulatorCredentials;
-use crate::App;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serial_test::serial;

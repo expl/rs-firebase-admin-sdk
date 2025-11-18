@@ -1,4 +1,4 @@
-use super::{encode_jwt, TokenClaims, TokenHeader};
+use super::{TokenClaims, TokenHeader, encode_jwt};
 use crate::auth::token::crypto::generate_test_cert;
 use openssl::{hash::MessageDigest, sign::Signer, x509::X509};
 

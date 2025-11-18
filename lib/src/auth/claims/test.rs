@@ -1,5 +1,5 @@
 use super::Claims;
-use serde_json::{to_string, Value};
+use serde_json::{Value, to_string};
 
 #[test]
 fn test_claims() {
