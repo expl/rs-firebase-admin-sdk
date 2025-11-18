@@ -8,7 +8,7 @@ use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
 use error_stack::{Report, ResultExt};
 use http::Method;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::future::Future;
 use std::iter::Iterator;
 use url_params::UrlParams;

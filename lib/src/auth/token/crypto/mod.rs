@@ -1,4 +1,4 @@
-use super::jwt::{error::JWTError, JwtSigner};
+use super::jwt::{JwtSigner, error::JWTError};
 use base64::{self, Engine};
 use error_stack::{Report, ResultExt};
 use openssl::{
@@ -9,12 +9,12 @@ use openssl::{
     pkey::{PKey, Private, Public},
     rsa::Rsa,
     sign::{Signer, Verifier},
-    x509::{X509Name, X509},
+    x509::{X509, X509Name},
 };
 use serde::de::{self, Visitor};
 use std::fmt;
 
-impl<'a> JwtSigner for Signer<'a> {
+impl JwtSigner for Signer<'_> {
     fn sign_jwt(&mut self, header: &str, payload: &str) -> Result<String, Report<JWTError>> {
         self.update(header.as_bytes())
             .change_context(JWTError::FailedToEncode)?;
@@ -51,7 +51,7 @@ impl JwtRsaPubKey {
 
 struct JwtRsaPubKeyVisitor;
 
-impl<'de> Visitor<'de> for JwtRsaPubKeyVisitor {
+impl Visitor<'_> for JwtRsaPubKeyVisitor {
     type Value = JwtRsaPubKey;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

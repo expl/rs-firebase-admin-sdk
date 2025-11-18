@@ -1,8 +1,8 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "2.4.0"
-rust-version = "1.81"
-edition = "2021"
+version = "3.0.0"
+rust-version = "1.85"
+edition = "2024"
 authors = ["Kostas Petrikas"]
 categories = ["authentication", "api-bindings", "asynchronous"]
 description = "Firebase Admin SDK for Rust"
@@ -19,12 +19,12 @@ rustls-tls = ["reqwest/rustls-tls"]
 tokens = ["dep:openssl"]
 
 [dependencies]
-tokio = { version = "1.43", features = ["sync"], default-features = false }
-error-stack = "0.5"
+tokio = { version = "1.48", features = ["sync"], default-features = false }
+error-stack = "0.6"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-http = "1.2"
+http = "1.3"
 headers = "0.4"
 reqwest = { version = "0.12", features = ["charset", "json"], default-features = false }
 urlencoding = "2.1"
@@ -35,5 +35,5 @@ base64 = "0.22"
 openssl = { version = "0.10", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.43", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 serial_test = "3.2"

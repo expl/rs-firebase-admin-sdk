@@ -1,7 +1,8 @@
 use rs_firebase_admin_sdk::{
+    App,
     auth::{FirebaseAuthService, UserList},
     client::ApiHttpClient,
-    credentials_provider, App,
+    credentials_provider,
 };
 
 /// Generic method to print out all live users, fetch 10 at a time

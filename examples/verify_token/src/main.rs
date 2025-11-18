@@ -1,4 +1,4 @@
-use rs_firebase_admin_sdk::{auth::token::TokenVerifier, credentials_provider, App};
+use rs_firebase_admin_sdk::{App, auth::token::TokenVerifier, credentials_provider};
 
 async fn verify_token<T: TokenVerifier>(token: &str, verifier: &T) {
     match verifier.verify_token(token).await {

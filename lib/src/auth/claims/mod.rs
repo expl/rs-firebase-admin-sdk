@@ -4,7 +4,7 @@ mod test;
 use serde::de::{self, Visitor};
 use serde::ser::Error;
 use serde::{Serialize, Serializer};
-use serde_json::{from_str, to_string, Value};
+use serde_json::{Value, from_str, to_string};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -31,7 +31,7 @@ impl From<BTreeMap<String, Value>> for Claims {
 
 struct ClaimsVisitor;
 
-impl<'de> Visitor<'de> for ClaimsVisitor {
+impl Visitor<'_> for ClaimsVisitor {
     type Value = Claims;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

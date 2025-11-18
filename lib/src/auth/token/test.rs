@@ -1,6 +1,6 @@
 use super::cache::{CacheClient, HttpCache, Resource};
 use super::crypto::generate_test_cert;
-use super::jwt::{util::generate_test_token, JWTAlgorithm, JWToken, TokenClaims, TokenHeader};
+use super::jwt::{JWTAlgorithm, JWToken, TokenClaims, TokenHeader, util::generate_test_token};
 use super::{LiveTokenVerifier, TokenVerificationError};
 use error_stack::Report;
 use serde_json::to_string;
