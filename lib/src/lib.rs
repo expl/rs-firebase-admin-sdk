@@ -8,36 +8,37 @@ use auth::FirebaseAuth;
 
 #[cfg(feature = "tokens")]
 use auth::token::{
-    EmulatedTokenVerifier, GOOGLE_COOKIE_PUB_KEY_URI, GOOGLE_PUB_KEY_URI, LiveTokenVerifier,
+    GOOGLE_COOKIE_PUB_KEY_URI, GOOGLE_PUB_KEY_URI, LiveTokenVerifier,
     cache::{HttpCache, PubKeys},
     error::TokenVerificationError,
 };
 use client::ReqwestApiClient;
-use credentials::emulator::EmulatorCredentials;
-pub use credentials::{Credentials, error::CredentialsError};
+use credentials::{emulator::EmulatorCredentials, GCPCredentialsError, get_project_id};
 use error_stack::{Report, ResultExt};
-use gcp_auth::TokenProvider;
-pub use gcp_auth::provider as credentials_provider;
-use std::sync::Arc;
+use google_cloud_auth::{credentials::{AccessTokenCredentials, Builder}};
 
-/// Default Firebase Auth admin manager
-pub type GcpCredentials = Arc<dyn TokenProvider>;
-pub type LiveAuthAdmin = FirebaseAuth<ReqwestApiClient<GcpCredentials>>;
+const FIREBASE_AUTH_SCOPES: [&str; 2] = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+];
+
+pub type LiveAuthAdmin = FirebaseAuth<ReqwestApiClient<AccessTokenCredentials>>;
 /// Default Firebase Auth Emulator admin manager
 pub type EmulatorAuthAdmin = FirebaseAuth<ReqwestApiClient<EmulatorCredentials>>;
 
 /// Base privileged manager for Firebase
-pub struct App<CredentialsT> {
-    credentials: CredentialsT,
-    project_id: String,
+pub struct App<C> {
+    credentials: C,
+    project_id: String
 }
 
 impl App<EmulatorCredentials> {
     /// Firebase app backend by emulator
-    pub fn emulated(project_id: String) -> Self {
+    pub fn emulated() -> Self {
+        let credentials = EmulatorCredentials::default();
         Self {
-            credentials: EmulatorCredentials::default(),
-            project_id,
+            project_id: credentials.project_id.clone(),
+            credentials
         }
     }
 
@@ -45,35 +46,34 @@ impl App<EmulatorCredentials> {
     pub fn auth(&self, emulator_url: String) -> EmulatorAuthAdmin {
         let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
 
-        FirebaseAuth::emulated(emulator_url, &self.project_id, client)
+        FirebaseAuth::emulated(emulator_url, &self.credentials.project_id, client)
     }
 
-    /// OIDC token verifier for emulator
-    #[cfg(feature = "tokens")]
-    pub fn id_token_verifier(&self) -> EmulatedTokenVerifier {
-        EmulatedTokenVerifier::new(self.project_id.clone())
-    }
+    // /// OIDC token verifier for emulator
+    // #[cfg(feature = "tokens")]
+    // pub fn id_token_verifier(&self) -> EmulatedTokenVerifier {
+    //     EmulatedTokenVerifier::new(self.project_id.clone())
+    // }
 }
 
-impl App<GcpCredentials> {
+impl App<AccessTokenCredentials> {
     /// Create instance of Firebase app for live project
-    pub async fn live(credentials: GcpCredentials) -> Result<Self, Report<CredentialsError>> {
-        Self::live_shared(credentials).await
-    }
-
-    pub async fn live_shared(
-        credentials: GcpCredentials,
-    ) -> Result<Self, Report<CredentialsError>> {
-        let project_id = credentials
-            .project_id()
+    pub async fn live() -> Result<Self, Report<GCPCredentialsError>> {
+        let credentials = Builder::default()
+            .with_scopes(FIREBASE_AUTH_SCOPES)
+            .build_access_token_credentials()
+            .change_context(GCPCredentialsError)?;
+    
+        let project_id = get_project_id(&credentials)
             .await
-            .change_context(CredentialsError::Internal)?
-            .to_string();
-
-        Ok(Self {
-            credentials,
-            project_id,
-        })
+            .change_context(GCPCredentialsError)?;
+        
+        Ok(
+            Self {
+                credentials,
+                project_id
+            }
+        )
     }
 
     /// Create Firebase authentication manager

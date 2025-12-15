@@ -1,13 +1,15 @@
-use super::{Credentials, GoogleUserProject, emulator::EmulatorCredentials};
+use super::{EmulatorCredentials, super::GoogleUserProject};
+use google_cloud_auth::credentials::{CredentialsProvider, CacheableResource};
 use headers::{Authorization, HeaderMapExt, authorization::Bearer};
-use http::header::{HeaderMap, HeaderValue};
+use http::Extensions;
 
 #[tokio::test]
 async fn test_credentials() {
-    let mut headers: HeaderMap<HeaderValue> = HeaderMap::default();
     let creds = EmulatorCredentials::default();
-
-    creds.set_credentials(&mut headers, &[]).await.unwrap();
+    let headers = match creds.headers(Extensions::new()).await.unwrap() {
+        CacheableResource::New { entity_tag: _, data } => data,
+        _ => unreachable!() 
+    };
 
     let project_id: GoogleUserProject = headers.typed_get().unwrap();
     let token: Authorization<Bearer> = headers.typed_get().unwrap();

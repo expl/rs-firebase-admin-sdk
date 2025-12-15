@@ -27,11 +27,6 @@ use time::{Duration, OffsetDateTime};
 
 const FIREBASE_AUTH_REST_AUTHORITY: &str = "identitytoolkit.googleapis.com";
 
-const FIREBASE_AUTH_SCOPES: [&str; 2] = [
-    "https://www.googleapis.com/auth/cloud-platform",
-    "https://www.googleapis.com/auth/userinfo.email",
-];
-
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NewUser {
@@ -363,7 +358,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
             .get_auth_uri_builder()
             .build(FirebaseAuthRestApi::CreateUser);
 
-        client.send_request_body(uri, Method::POST, user, &FIREBASE_AUTH_SCOPES)
+        client.send_request_body(uri, Method::POST, user)
     }
 
     /// Get first user that matches given identifier filter
@@ -413,7 +408,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::GetUsers),
                     Method::POST,
                     indentifiers,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -460,7 +454,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::ListUsers),
                     params.into_iter(),
                     Method::GET,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -482,7 +475,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::DeleteUser),
                     Method::POST,
                     UserId { uid },
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
@@ -503,7 +495,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::DeleteUsers),
                     Method::POST,
                     UserIds { uids, force },
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
@@ -532,7 +523,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::UpdateUser),
                     Method::POST,
                     update,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
@@ -562,7 +552,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::ImportUsers),
                     Method::POST,
                     UserImportRecords { users },
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -593,7 +582,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::SendOobCode),
                     Method::POST,
                     oob_action,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -622,7 +610,6 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     uri_builder.build(FirebaseAuthRestApi::CreateSessionCookie),
                     Method::POST,
                     create_cookie,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -689,7 +676,6 @@ where
                 .send_request(
                     uri_builder.build(FirebaseAuthEmulatorRestApi::ClearUserAccounts),
                     Method::DELETE,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -709,7 +695,6 @@ where
                 .send_request(
                     uri_builder.build(FirebaseAuthEmulatorRestApi::Configuration),
                     Method::GET,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
@@ -729,7 +714,6 @@ where
                     uri_builder.build(FirebaseAuthEmulatorRestApi::Configuration),
                     Method::PATCH,
                     configuration,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
@@ -747,7 +731,6 @@ where
                 .send_request(
                     uri_builder.build(FirebaseAuthEmulatorRestApi::OobCodes),
                     Method::GET,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await?;
 
@@ -767,7 +750,6 @@ where
                 .send_request(
                     uri_builder.build(FirebaseAuthEmulatorRestApi::SmsVerificationCodes),
                     Method::GET,
-                    &FIREBASE_AUTH_SCOPES,
                 )
                 .await
         }
