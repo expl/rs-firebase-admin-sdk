@@ -3,7 +3,7 @@
 pub mod error;
 pub mod url_params;
 
-use crate::credentials::Credentials;
+use google_cloud_auth::credentials::CredentialsProvider;
 use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
 use error_stack::{Report, ResultExt};
@@ -12,13 +12,13 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::future::Future;
 use std::iter::Iterator;
 use url_params::UrlParams;
+use crate::credentials::get_headers;
 
 pub trait ApiHttpClient: Send + Sync + 'static {
     fn send_request<ResponseT: Send + DeserializeOwned>(
         &self,
         uri: String,
         method: Method,
-        oauth_scopes: &[&str],
     ) -> impl Future<Output = Result<ResponseT, Report<ApiClientError>>> + Send;
 
     fn send_request_with_params<
@@ -29,7 +29,6 @@ pub trait ApiHttpClient: Send + Sync + 'static {
         uri: String,
         params: ParamsT,
         method: Method,
-        oauth_scopes: &[&str],
     ) -> impl Future<Output = Result<ResponseT, Report<ApiClientError>>> + Send;
 
     fn send_request_body<RequestT: Serialize + Send, ResponseT: DeserializeOwned + Send>(
@@ -37,7 +36,6 @@ pub trait ApiHttpClient: Send + Sync + 'static {
         uri: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> impl Future<Output = Result<ResponseT, Report<ApiClientError>>> + Send;
 
     fn send_request_body_get_bytes<RequestT: Serialize + Send>(
@@ -45,7 +43,6 @@ pub trait ApiHttpClient: Send + Sync + 'static {
         uri: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> impl Future<Output = Result<Bytes, Report<ApiClientError>>> + Send;
 
     fn send_request_body_empty_response<RequestT: Serialize + Send>(
@@ -53,7 +50,6 @@ pub trait ApiHttpClient: Send + Sync + 'static {
         uri: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send;
 }
 
@@ -76,7 +72,7 @@ pub struct ReqwestApiClient<C> {
     credentials: C,
 }
 
-impl<C: Credentials> ReqwestApiClient<C> {
+impl<C: CredentialsProvider> ReqwestApiClient<C> {
     pub fn new(client: reqwest::Client, credentials: C) -> Self {
         Self {
             client,
@@ -105,16 +101,13 @@ impl<C: Credentials> ReqwestApiClient<C> {
         &self,
         url: &str,
         method: Method,
-        oauth_scopes: &[&str],
         body: Option<B>,
     ) -> Result<reqwest::Response, Report<ApiClientError>> {
         self.client
             .request(method, url)
-            .bearer_auth(
-                self.credentials
-                    .get_access_token(oauth_scopes)
-                    .await
-                    .change_context(ApiClientError::FailedToSendRequest)?,
+            .headers(
+                get_headers(&self.credentials).await
+                    .change_context(ApiClientError::FailedToSendRequest)?
             )
             .set_request_body(body)
             .send()
@@ -123,15 +116,14 @@ impl<C: Credentials> ReqwestApiClient<C> {
     }
 }
 
-impl<C: Credentials> ApiHttpClient for ReqwestApiClient<C> {
+impl<C: CredentialsProvider + Send + Sync + 'static> ApiHttpClient for ReqwestApiClient<C> {
     async fn send_request<ResponseT: Send + DeserializeOwned>(
         &self,
         url: String,
         method: Method,
-        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>> {
         Self::handle_response(
-            self.handle_request::<()>(&url, method, oauth_scopes, None)
+            self.handle_request::<()>(&url, method, None)
                 .await?,
         )
         .await?
@@ -148,11 +140,10 @@ impl<C: Credentials> ApiHttpClient for ReqwestApiClient<C> {
         url: String,
         params: ParamsT,
         method: Method,
-        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>> {
         let url: String = url + &params.into_url_params();
         Self::handle_response(
-            self.handle_request::<()>(&url, method, oauth_scopes, None)
+            self.handle_request::<()>(&url, method, None)
                 .await?,
         )
         .await?
@@ -166,10 +157,9 @@ impl<C: Credentials> ApiHttpClient for ReqwestApiClient<C> {
         url: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> Result<ResponseT, Report<ApiClientError>> {
         Self::handle_response(
-            self.handle_request(&url, method, oauth_scopes, Some(request_body))
+            self.handle_request(&url, method, Some(request_body))
                 .await?,
         )
         .await?
@@ -183,10 +173,9 @@ impl<C: Credentials> ApiHttpClient for ReqwestApiClient<C> {
         url: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> Result<Bytes, Report<ApiClientError>> {
         Self::handle_response(
-            self.handle_request(&url, method, oauth_scopes, Some(request_body))
+            self.handle_request(&url, method,Some(request_body))
                 .await?,
         )
         .await?
@@ -200,10 +189,9 @@ impl<C: Credentials> ApiHttpClient for ReqwestApiClient<C> {
         url: String,
         method: Method,
         request_body: RequestT,
-        oauth_scopes: &[&str],
     ) -> Result<(), Report<ApiClientError>> {
         Self::handle_response(
-            self.handle_request(&url, method, oauth_scopes, Some(request_body))
+            self.handle_request(&url, method, Some(request_body))
                 .await?,
         )
         .await?;

@@ -1,18 +1,16 @@
 //! OAuth2 credential managers for GCP and Firebase Emulator
 
 pub mod emulator;
-pub mod error;
-pub mod gcp;
 
-#[cfg(test)]
-mod test;
-
-use error::CredentialsError;
-use error_stack::{Report, ResultExt};
-use headers::{Authorization, HeaderMapExt, authorization::Bearer};
 use headers::{Header, HeaderName, HeaderValue};
-use http::header::HeaderMap;
-use std::future::Future;
+use google_cloud_auth::credentials::{CredentialsProvider, CacheableResource};
+use http::{Extensions, HeaderMap};
+use error_stack::{Report, ResultExt};
+use headers::HeaderMapExt;
+
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("Failed to extract GCP credentials")]
+pub struct GCPCredentialsError;
 
 static X_GOOG_USER_PROJECT: HeaderName = HeaderName::from_static("x-goog-user-project");
 
@@ -48,35 +46,28 @@ impl Header for GoogleUserProject {
     }
 }
 
-pub trait Credentials: Send + Sync + 'static {
-    /// Implementation for generation of OAuth2 access token
-    fn get_access_token(
-        &self,
-        scopes: &[&str],
-    ) -> impl Future<Output = Result<String, Report<CredentialsError>>> + Send;
+pub(crate) async fn get_project_id(
+    creds: &impl CredentialsProvider
+) -> Result<String, Report<GCPCredentialsError>> {
+    let headers = get_headers(creds).await?;
 
-    /// Implementation for getting GCP project id
-    fn get_project_id(
-        &self,
-    ) -> impl Future<Output = Result<String, Report<CredentialsError>>> + Send;
+    let user_project: GoogleUserProject = headers.typed_get()
+        .ok_or(Report::new(GCPCredentialsError))?;
+    
+    Ok(user_project.0)
+}
 
-    /// Set credentials for a API request, by default use bearer authorization for passing access token
-    fn set_credentials(
-        &self,
-        headers: &mut HeaderMap,
-        scopes: &[&str],
-    ) -> impl Future<Output = Result<(), Report<CredentialsError>>> + Send {
-        async move {
-            let token = self.get_access_token(scopes).await?;
+pub(crate) async fn get_headers(
+    creds: &impl CredentialsProvider
+) -> Result<HeaderMap, Report<GCPCredentialsError>> {
+    let headers = creds.headers(Extensions::new())
+        .await
+        .change_context(GCPCredentialsError)?;
 
-            headers.typed_insert(
-                Authorization::<Bearer>::bearer(&token)
-                    .change_context(CredentialsError::InvalidAccessToken)?,
-            );
+    let headers = match headers {
+        CacheableResource::New { entity_tag: _, data } => data,
+        _ => unreachable!()
+    };
 
-            headers.typed_insert(GoogleUserProject(self.get_project_id().await?));
-
-            Ok(())
-        }
-    }
+    Ok(headers)
 }

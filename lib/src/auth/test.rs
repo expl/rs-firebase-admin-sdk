@@ -18,7 +18,7 @@ use time::Duration;
 use tokio;
 
 fn get_auth_service() -> FirebaseAuth<ReqwestApiClient<EmulatorCredentials>> {
-    App::emulated("demo-firebase-project".into()).auth("http://emulator:9099".parse().unwrap())
+    App::emulated().auth("http://emulator:9099".parse().unwrap())
 }
 
 #[derive(Serialize)]
