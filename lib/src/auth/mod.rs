@@ -7,9 +7,6 @@ pub mod claims;
 pub mod import;
 pub mod oob_code;
 
-#[cfg(feature = "tokens")]
-pub mod token;
-
 use crate::api_uri::{ApiUriBuilder, FirebaseAuthEmulatorRestApi, FirebaseAuthRestApi};
 use crate::client::ApiHttpClient;
 use crate::client::error::ApiClientError;

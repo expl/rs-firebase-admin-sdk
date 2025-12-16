@@ -2,11 +2,11 @@
 
 pub mod emulator;
 
-use headers::{Header, HeaderName, HeaderValue};
-use google_cloud_auth::credentials::{CredentialsProvider, CacheableResource};
-use http::{Extensions, HeaderMap};
 use error_stack::{Report, ResultExt};
+use google_cloud_auth::credentials::{CacheableResource, CredentialsProvider};
 use headers::HeaderMapExt;
+use headers::{Header, HeaderName, HeaderValue};
+use http::{Extensions, HeaderMap};
 
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("Failed to extract GCP credentials")]
@@ -47,26 +47,31 @@ impl Header for GoogleUserProject {
 }
 
 pub(crate) async fn get_project_id(
-    creds: &impl CredentialsProvider
+    creds: &impl CredentialsProvider,
 ) -> Result<String, Report<GCPCredentialsError>> {
     let headers = get_headers(creds).await?;
 
-    let user_project: GoogleUserProject = headers.typed_get()
+    let user_project: GoogleUserProject = headers
+        .typed_get()
         .ok_or(Report::new(GCPCredentialsError))?;
-    
+
     Ok(user_project.0)
 }
 
 pub(crate) async fn get_headers(
-    creds: &impl CredentialsProvider
+    creds: &impl CredentialsProvider,
 ) -> Result<HeaderMap, Report<GCPCredentialsError>> {
-    let headers = creds.headers(Extensions::new())
+    let headers = creds
+        .headers(Extensions::new())
         .await
         .change_context(GCPCredentialsError)?;
 
     let headers = match headers {
-        CacheableResource::New { entity_tag: _, data } => data,
-        _ => unreachable!()
+        CacheableResource::New {
+            entity_tag: _,
+            data,
+        } => data,
+        _ => unreachable!(),
     };
 
     Ok(headers)
