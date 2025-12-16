@@ -3,16 +3,16 @@
 pub mod error;
 pub mod url_params;
 
-use google_cloud_auth::credentials::CredentialsProvider;
+use crate::credentials::get_headers;
 use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
 use error_stack::{Report, ResultExt};
+use google_cloud_auth::credentials::CredentialsProvider;
 use http::Method;
 use serde::{Serialize, de::DeserializeOwned};
 use std::future::Future;
 use std::iter::Iterator;
 use url_params::UrlParams;
-use crate::credentials::get_headers;
 
 pub trait ApiHttpClient: Send + Sync + 'static {
     fn send_request<ResponseT: Send + DeserializeOwned>(
@@ -106,8 +106,9 @@ impl<C: CredentialsProvider> ReqwestApiClient<C> {
         self.client
             .request(method, url)
             .headers(
-                get_headers(&self.credentials).await
-                    .change_context(ApiClientError::FailedToSendRequest)?
+                get_headers(&self.credentials)
+                    .await
+                    .change_context(ApiClientError::FailedToSendRequest)?,
             )
             .set_request_body(body)
             .send()
@@ -122,14 +123,11 @@ impl<C: CredentialsProvider + Send + Sync + 'static> ApiHttpClient for ReqwestAp
         url: String,
         method: Method,
     ) -> Result<ResponseT, Report<ApiClientError>> {
-        Self::handle_response(
-            self.handle_request::<()>(&url, method, None)
-                .await?,
-        )
-        .await?
-        .json()
-        .await
-        .change_context(ApiClientError::FailedToReceiveResponse)
+        Self::handle_response(self.handle_request::<()>(&url, method, None).await?)
+            .await?
+            .json()
+            .await
+            .change_context(ApiClientError::FailedToReceiveResponse)
     }
 
     async fn send_request_with_params<
@@ -142,14 +140,11 @@ impl<C: CredentialsProvider + Send + Sync + 'static> ApiHttpClient for ReqwestAp
         method: Method,
     ) -> Result<ResponseT, Report<ApiClientError>> {
         let url: String = url + &params.into_url_params();
-        Self::handle_response(
-            self.handle_request::<()>(&url, method, None)
-                .await?,
-        )
-        .await?
-        .json()
-        .await
-        .change_context(ApiClientError::FailedToReceiveResponse)
+        Self::handle_response(self.handle_request::<()>(&url, method, None).await?)
+            .await?
+            .json()
+            .await
+            .change_context(ApiClientError::FailedToReceiveResponse)
     }
 
     async fn send_request_body<RequestT: Serialize + Send, ResponseT: DeserializeOwned + Send>(
@@ -175,7 +170,7 @@ impl<C: CredentialsProvider + Send + Sync + 'static> ApiHttpClient for ReqwestAp
         request_body: RequestT,
     ) -> Result<Bytes, Report<ApiClientError>> {
         Self::handle_response(
-            self.handle_request(&url, method,Some(request_body))
+            self.handle_request(&url, method, Some(request_body))
                 .await?,
         )
         .await?

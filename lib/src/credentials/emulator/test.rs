@@ -1,5 +1,5 @@
-use super::{EmulatorCredentials, super::GoogleUserProject};
-use google_cloud_auth::credentials::{CredentialsProvider, CacheableResource};
+use super::{super::GoogleUserProject, EmulatorCredentials};
+use google_cloud_auth::credentials::{CacheableResource, CredentialsProvider};
 use headers::{Authorization, HeaderMapExt, authorization::Bearer};
 use http::Extensions;
 
@@ -7,8 +7,11 @@ use http::Extensions;
 async fn test_credentials() {
     let creds = EmulatorCredentials::default();
     let headers = match creds.headers(Extensions::new()).await.unwrap() {
-        CacheableResource::New { entity_tag: _, data } => data,
-        _ => unreachable!() 
+        CacheableResource::New {
+            entity_tag: _,
+            data,
+        } => data,
+        _ => unreachable!(),
     };
 
     let project_id: GoogleUserProject = headers.typed_get().unwrap();

@@ -1,6 +1,6 @@
 use super::import::{PasswordHash, UserImportRecord};
 #[cfg(feature = "tokens")]
-use super::token::jwt::JWToken;
+// use super::token::jwt::JWToken;
 use super::{
     AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
     OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
@@ -529,6 +529,7 @@ async fn test_generate_email_action_link() {
 #[tokio::test]
 #[serial]
 async fn test_create_session_cookie() {
+    use crate::jwt::{EmulatorValidator, TokenValidator};
     let auth = get_auth_service();
 
     auth.create_user(NewUser::email_and_password(
@@ -544,7 +545,9 @@ async fn test_create_session_cookie() {
         .await
         .unwrap();
 
-    JWToken::from_encoded(&cookie).expect("Got invalid session cookie token");
+    let claims = EmulatorValidator.validate(&cookie).await.unwrap();
+    let email = claims.get("email").unwrap().as_str().unwrap();
+    assert_eq!(email, "test@example.com");
 
     auth.clear_all_users().await.unwrap();
 }
