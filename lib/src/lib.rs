@@ -11,6 +11,7 @@ use client::ReqwestApiClient;
 use credentials::{GCPCredentialsError, emulator::EmulatorCredentials, get_project_id};
 use error_stack::{Report, ResultExt};
 use google_cloud_auth::credentials::{AccessTokenCredentials, Builder};
+pub use google_cloud_auth::credentials::CredentialsProvider;
 
 const FIREBASE_AUTH_SCOPES: [&str; 2] = [
     "https://www.googleapis.com/auth/cloud-platform",
