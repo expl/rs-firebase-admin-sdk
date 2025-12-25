@@ -3,7 +3,7 @@
 pub mod emulator;
 
 use error_stack::{Report, ResultExt};
-use google_cloud_auth::credentials::{CacheableResource, CredentialsProvider};
+use google_cloud_auth::credentials::{CacheableResource, Credentials};
 use headers::HeaderMapExt;
 use headers::{Header, HeaderName, HeaderValue};
 use http::{Extensions, HeaderMap};
@@ -47,7 +47,7 @@ impl Header for GoogleUserProject {
 }
 
 pub(crate) async fn get_project_id(
-    creds: &impl CredentialsProvider,
+    creds: &Credentials,
 ) -> Result<String, Report<GCPCredentialsError>> {
     let headers = get_headers(creds).await?;
 
@@ -59,7 +59,7 @@ pub(crate) async fn get_project_id(
 }
 
 pub(crate) async fn get_headers(
-    creds: &impl CredentialsProvider,
+    creds: &Credentials,
 ) -> Result<HeaderMap, Report<GCPCredentialsError>> {
     let headers = creds
         .headers(Extensions::new())

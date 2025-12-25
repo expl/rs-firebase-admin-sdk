@@ -7,7 +7,6 @@ use super::{
 };
 use crate::App;
 use crate::client::ReqwestApiClient;
-use crate::credentials::emulator::EmulatorCredentials;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serial_test::serial;
@@ -17,7 +16,7 @@ use std::collections::BTreeMap;
 use time::Duration;
 use tokio;
 
-fn get_auth_service() -> FirebaseAuth<ReqwestApiClient<EmulatorCredentials>> {
+fn get_auth_service() -> FirebaseAuth<ReqwestApiClient> {
     App::emulated().auth("http://emulator:9099".parse().unwrap())
 }
 
