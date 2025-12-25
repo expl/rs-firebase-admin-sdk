@@ -7,7 +7,7 @@ use crate::credentials::get_headers;
 use bytes::Bytes;
 use error::{ApiClientError, FireBaseAPIErrorResponse};
 use error_stack::{Report, ResultExt};
-use google_cloud_auth::credentials::CredentialsProvider;
+use google_cloud_auth::credentials::Credentials;
 use http::Method;
 use serde::{Serialize, de::DeserializeOwned};
 use std::future::Future;
@@ -67,13 +67,13 @@ impl<T: Serialize> SetReqBody<T> for reqwest::RequestBuilder {
     }
 }
 
-pub struct ReqwestApiClient<C> {
+pub struct ReqwestApiClient {
     client: reqwest::Client,
-    credentials: C,
+    credentials: Credentials,
 }
 
-impl<C: CredentialsProvider> ReqwestApiClient<C> {
-    pub fn new(client: reqwest::Client, credentials: C) -> Self {
+impl ReqwestApiClient {
+    pub fn new(client: reqwest::Client, credentials: Credentials) -> Self {
         Self {
             client,
             credentials,
@@ -117,7 +117,7 @@ impl<C: CredentialsProvider> ReqwestApiClient<C> {
     }
 }
 
-impl<C: CredentialsProvider + Send + Sync + 'static> ApiHttpClient for ReqwestApiClient<C> {
+impl ApiHttpClient for ReqwestApiClient {
     async fn send_request<ResponseT: Send + DeserializeOwned>(
         &self,
         url: String,

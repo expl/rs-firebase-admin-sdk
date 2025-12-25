@@ -8,24 +8,22 @@ pub mod util;
 
 use auth::FirebaseAuth;
 use client::ReqwestApiClient;
+use core::marker::PhantomData;
 use credentials::{GCPCredentialsError, emulator::EmulatorCredentials, get_project_id};
 use error_stack::{Report, ResultExt};
-pub use google_cloud_auth::credentials::CredentialsProvider;
 use google_cloud_auth::credentials::{AccessTokenCredentials, Builder};
+pub use google_cloud_auth::credentials::{Credentials, CredentialsProvider};
 
 const FIREBASE_AUTH_SCOPES: [&str; 2] = [
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
 ];
 
-pub type LiveAuthAdmin = FirebaseAuth<ReqwestApiClient<AccessTokenCredentials>>;
-/// Default Firebase Auth Emulator admin manager
-pub type EmulatorAuthAdmin = FirebaseAuth<ReqwestApiClient<EmulatorCredentials>>;
-
 /// Base privileged manager for Firebase
 pub struct App<C> {
-    credentials: C,
+    credentials: Credentials,
     project_id: String,
+    _credentials_provider: PhantomData<C>,
 }
 
 impl App<EmulatorCredentials> {
@@ -34,15 +32,16 @@ impl App<EmulatorCredentials> {
         let credentials = EmulatorCredentials::default();
         Self {
             project_id: credentials.project_id.clone(),
-            credentials,
+            credentials: credentials.into(),
+            _credentials_provider: PhantomData,
         }
     }
 
     /// Firebase authentication manager for emulator
-    pub fn auth(&self, emulator_url: String) -> EmulatorAuthAdmin {
+    pub fn auth(&self, emulator_url: String) -> FirebaseAuth<ReqwestApiClient> {
         let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
 
-        FirebaseAuth::emulated(emulator_url, &self.credentials.project_id, client)
+        FirebaseAuth::emulated(emulator_url, &self.project_id, client)
     }
 
     /// OIDC token verifier for emulator
@@ -55,10 +54,11 @@ impl App<EmulatorCredentials> {
 impl App<AccessTokenCredentials> {
     /// Create instance of Firebase app for live project
     pub async fn live() -> Result<Self, Report<GCPCredentialsError>> {
-        let credentials = Builder::default()
+        let credentials: Credentials = Builder::default()
             .with_scopes(FIREBASE_AUTH_SCOPES)
             .build_access_token_credentials()
-            .change_context(GCPCredentialsError)?;
+            .change_context(GCPCredentialsError)?
+            .into();
 
         let project_id = get_project_id(&credentials)
             .await
@@ -67,11 +67,12 @@ impl App<AccessTokenCredentials> {
         Ok(Self {
             credentials,
             project_id,
+            _credentials_provider: PhantomData,
         })
     }
 
     /// Create Firebase authentication manager
-    pub fn auth(&self) -> LiveAuthAdmin {
+    pub fn auth(&self) -> FirebaseAuth<ReqwestApiClient> {
         let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
 
         FirebaseAuth::live(&self.project_id, client)
