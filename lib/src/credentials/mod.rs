@@ -7,6 +7,7 @@ use google_cloud_auth::credentials::{CacheableResource, Credentials};
 use headers::HeaderMapExt;
 use headers::{Header, HeaderName, HeaderValue};
 use http::{Extensions, HeaderMap};
+use std::env::var;
 
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("Failed to extract GCP credentials")]
@@ -49,6 +50,10 @@ impl Header for GoogleUserProject {
 pub(crate) async fn get_project_id(
     creds: &Credentials,
 ) -> Result<String, Report<GCPCredentialsError>> {
+    if let Ok(project_id) = var("GOOGLE_CLOUD_PROJECT") {
+        return Ok(project_id);
+    }
+
     let headers = get_headers(creds).await?;
 
     let user_project: GoogleUserProject = headers
