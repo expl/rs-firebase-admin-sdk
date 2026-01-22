@@ -7,4 +7,4 @@ edition = "2024"
 
 [dependencies]
 rs-firebase-admin-sdk = { path = "../../lib" }
-tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.49", features = ["macros", "rt-multi-thread"] }

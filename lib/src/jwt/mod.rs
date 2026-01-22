@@ -10,6 +10,8 @@ use thiserror::Error;
 
 const GOOGLE_JWKS_URI: &str =
     "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
+const GOOGLE_PKEYS_URI: &str =
+    "https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys";
 const GOOGLE_ID_TOKEN_ISSUER_PREFIX: &str = "https://securetoken.google.com/";
 const GOOGLE_COOKIE_ISSUER_PREFIX: &str = "https://session.firebase.google.com/";
 
@@ -55,9 +57,9 @@ impl LiveValidator {
         Ok(Self {
             issuer: format!("{GOOGLE_COOKIE_ISSUER_PREFIX}{project_id}"),
             project_id,
-            jwks: CachedJWKS::new(
+            jwks: CachedJWKS::new_rsa_pkeys(
                 // should always succeed
-                GOOGLE_JWKS_URI.parse().unwrap(),
+                GOOGLE_PKEYS_URI.parse().unwrap(),
                 Duration::from_secs(60),
                 TimeoutSpec::default(),
             )?,
