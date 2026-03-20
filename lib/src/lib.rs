@@ -52,6 +52,24 @@ impl App<EmulatorCredentials> {
 }
 
 impl App<AccessTokenCredentials> {
+    /// Create instance of Firebase app for live project with an explicit project ID,
+    /// bypassing environment variable and credential header resolution.
+    pub async fn live_with_project_id(
+        project_id: &str,
+    ) -> Result<Self, Report<GCPCredentialsError>> {
+        let credentials: Credentials = Builder::default()
+            .with_scopes(FIREBASE_AUTH_SCOPES)
+            .build_access_token_credentials()
+            .change_context(GCPCredentialsError)?
+            .into();
+
+        Ok(Self {
+            credentials,
+            project_id: project_id.to_string(),
+            _credentials_provider: PhantomData,
+        })
+    }
+
     /// Create instance of Firebase app for live project
     pub async fn live() -> Result<Self, Report<GCPCredentialsError>> {
         let credentials: Credentials = Builder::default()
