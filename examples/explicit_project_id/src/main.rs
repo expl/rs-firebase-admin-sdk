@@ -30,8 +30,7 @@ where
 
 #[tokio::main]
 async fn main() {
-    let project_id = std::env::var("FIREBASE_PROJECT_ID")
-        .expect("FIREBASE_PROJECT_ID must be set");
+    let project_id = std::env::var("FIREBASE_PROJECT_ID").expect("FIREBASE_PROJECT_ID must be set");
 
     // Credentials are resolved via Application Default Credentials as usual.
     // The project ID is taken from the argument instead of GOOGLE_CLOUD_PROJECT,
