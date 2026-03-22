@@ -6,5 +6,6 @@ members = [
     "examples/get_users",
     "examples/verify_token",
     "examples/clear_emulator",
-    "examples/cookies"
+    "examples/cookies",
+    "examples/explicit_project_id"
 ]
