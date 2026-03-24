@@ -1,8 +1,0 @@
-[package]
-name = "explicit_project_id"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-rs-firebase-admin-sdk = { path = "../../lib" }
-tokio = { version = "1.49", features = ["macros", "rt-multi-thread"] }
