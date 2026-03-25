@@ -98,7 +98,7 @@ impl App<AccessTokenCredentials> {
 
     /// Create OIDC token verifier
     #[cfg(feature = "tokens")]
-    pub fn id_token_verifier(
+    pub async fn id_token_verifier(
         &self,
     ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
         jwt::LiveValidator::new_jwt_validator(self.project_id.clone())
@@ -107,7 +107,7 @@ impl App<AccessTokenCredentials> {
 
     // /// Create cookie token verifier
     #[cfg(feature = "tokens")]
-    pub fn cookie_token_verifier(
+    pub async fn cookie_token_verifier(
         &self,
     ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
         jwt::LiveValidator::new_cookie_validator(self.project_id.clone())
