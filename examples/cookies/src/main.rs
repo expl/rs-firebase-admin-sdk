@@ -11,7 +11,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let live_cookie_validator = live_app.cookie_token_verifier().unwrap();
+    let live_cookie_validator = live_app.cookie_token_verifier().await.unwrap();
 
     live_cookie_validator.validate(&cookie).await.unwrap();
 }

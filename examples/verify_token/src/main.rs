@@ -17,7 +17,7 @@ async fn main() {
     // Live
     let oidc_token = std::env::var("ID_TOKEN").unwrap();
     let live_app = App::live().await.unwrap();
-    let live_token_validator = live_app.id_token_verifier().unwrap();
+    let live_token_validator = live_app.id_token_verifier().await.unwrap();
     verify_token(&oidc_token, &live_token_validator).await;
 
     // Emulator
