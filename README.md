@@ -48,19 +48,6 @@ use rs_firebase_admin_sdk::{
 
 // Supply the Firebase project ID directly instead of reading GOOGLE_CLOUD_PROJECT
 let live_app = App::live_with_project_id("my-firebase-project-id").await.unwrap();
-
-let auth_admin = live_app.auth();
-
-let user = auth_admin.get_user(
-    UserIdentifiers::builder()
-        .with_email("me@email.com".into())
-        .build()
-)
-.await
-.expect("Error while fetching user")
-.expect("User does not exist");
-
-println!("User id: {}", user.uid);
 ```
 
 For more examples please see https://github.com/expl/rs-firebase-admin-sdk/tree/main/examples
