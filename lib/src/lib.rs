@@ -105,7 +105,7 @@ impl App<AccessTokenCredentials> {
             .change_context(credentials::GCPCredentialsError)
     }
 
-    // /// Create cookie token verifier
+    /// Create cookie token verifier
     #[cfg(feature = "tokens")]
     pub async fn cookie_token_verifier(
         &self,
