@@ -2,15 +2,23 @@ use super::import::{PasswordHash, UserImportRecord};
 #[cfg(feature = "tokens")]
 // use super::token::jwt::JWToken;
 use super::{
-    AttributeOp, Claims, FirebaseAuth, FirebaseAuthService, FirebaseEmulatorAuthService, NewUser,
-    OobCode, OobCodeAction, OobCodeActionType, UserIdentifiers, UserList, UserUpdate,
+    AttributeOp, Claims, CustomTokenError, FirebaseAuth, FirebaseAuthService,
+    FirebaseEmulatorAuthService, NewUser, OobCode, OobCodeAction, OobCodeActionType,
+    UserIdentifiers, UserList, UserUpdate,
 };
 use crate::App;
-use crate::client::ReqwestApiClient;
+use crate::client::{ApiHttpClient, ReqwestApiClient, error::ApiClientError};
+use bytes::Bytes;
+use error_stack::Report;
+use http::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serial_test::serial;
 use std::collections::BTreeMap;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 
 #[cfg(feature = "tokens")]
 use time::Duration;
@@ -524,6 +532,394 @@ async fn test_generate_email_action_link() {
     auth.clear_all_users().await.unwrap();
 }
 
+#[tokio::test]
+async fn test_create_custom_token_without_signer_returns_error() {
+    // Live auth (not emulated) with no signer configured — must fail.
+    let auth = FirebaseAuth::live("test-project", MockIamClient::new());
+    let result = auth.create_custom_token("some-uid").await;
+    assert!(
+        result.is_err(),
+        "Expected an error when no signer is configured on a live instance"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.contains::<CustomTokenError>(),
+        "Error should be CustomTokenError"
+    );
+}
+
+#[tokio::test]
+async fn test_create_custom_token_empty_uid_is_rejected() {
+    let auth = get_auth_service();
+    let err = auth.create_custom_token("").await.unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_create_custom_token_uid_too_long_is_rejected() {
+    let auth = get_auth_service();
+    let uid = "a".repeat(129);
+    let err = auth.create_custom_token(&uid).await.unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_create_custom_token_claims_not_object_is_rejected() {
+    let auth = get_auth_service();
+    let err = auth
+        .create_custom_token_with_claims("uid", Value::Array(vec![]))
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_create_custom_token_blacklisted_claim_is_rejected() {
+    let auth = get_auth_service();
+    for reserved in ["aud", "exp", "iat", "iss", "nbf", "nonce", "jti"] {
+        let claims = serde_json::json!({ reserved: "whatever" });
+        let err = auth
+            .create_custom_token_with_claims("uid", claims)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err.current_context(), CustomTokenError::InvalidArgument(_)),
+            "Expected InvalidArgument for reserved claim \"{reserved}\""
+        );
+    }
+}
+
+// uid boundary conditions
+
+#[tokio::test]
+async fn test_create_custom_token_uid_exactly_128_ascii_chars_passes_validation() {
+    let auth = get_auth_service();
+    let uid = "a".repeat(128);
+    // Validation passes — emulated auth produces a token.
+    auth.create_custom_token(&uid).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_create_custom_token_uid_128_unicode_chars_passes_validation() {
+    let auth = get_auth_service();
+    // Each '😀' is 4 bytes; 128 chars = 512 bytes — must pass char-count check
+    let uid = "😀".repeat(128);
+    // Validation passes — emulated auth produces a token.
+    auth.create_custom_token(&uid).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_create_custom_token_uid_129_unicode_chars_is_rejected() {
+    let auth = get_auth_service();
+    let uid = "😀".repeat(129);
+    let err = auth.create_custom_token(&uid).await.unwrap_err();
+    assert!(
+        matches!(err.current_context(), CustomTokenError::InvalidArgument(_)),
+        "129 unicode chars should be rejected"
+    );
+}
+
+// claims validation
+
+#[tokio::test]
+async fn test_create_custom_token_all_14_blacklisted_claims_are_rejected() {
+    let auth = get_auth_service();
+    let blacklisted = [
+        "acr",
+        "amr",
+        "at_hash",
+        "aud",
+        "auth_time",
+        "azp",
+        "cnf",
+        "c_hash",
+        "exp",
+        "iat",
+        "iss",
+        "jti",
+        "nbf",
+        "nonce",
+    ];
+    for reserved in blacklisted {
+        let claims = serde_json::json!({ reserved: "value" });
+        let err = auth
+            .create_custom_token_with_claims("uid", claims)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err.current_context(), CustomTokenError::InvalidArgument(_)),
+            "claim \"{reserved}\" should be rejected"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_create_custom_token_valid_claims_pass_validation() {
+    let auth = get_auth_service();
+    let claims = serde_json::json!({ "role": "admin", "premium": true });
+    // Validation passes — emulated auth produces a token.
+    auth.create_custom_token_with_claims("uid", claims)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_create_custom_token_empty_claims_object_passes_validation() {
+    let auth = get_auth_service();
+    let claims = serde_json::json!({});
+    // Validation passes — emulated auth produces a token.
+    auth.create_custom_token_with_claims("uid", claims)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_create_custom_token_null_claims_rejected() {
+    let auth = get_auth_service();
+    let err = auth
+        .create_custom_token_with_claims("uid", Value::Null)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_create_custom_token_string_claims_rejected() {
+    let auth = get_auth_service();
+    let err = auth
+        .create_custom_token_with_claims("uid", Value::String("nope".into()))
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_create_custom_token_number_claims_rejected() {
+    let auth = get_auth_service();
+    let err = auth
+        .create_custom_token_with_claims("uid", Value::Number(42.into()))
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err.current_context(),
+        CustomTokenError::InvalidArgument(_)
+    ));
+}
+
+// mock IAM client
+
+/// Captures the IAM signJwt request URL and body; returns a fake signed JWT.
+struct MockIamClient {
+    call_count: Arc<AtomicUsize>,
+    captured_url: Arc<Mutex<Option<String>>>,
+    captured_body: Arc<Mutex<Option<Value>>>,
+}
+
+impl MockIamClient {
+    fn new() -> Self {
+        Self {
+            call_count: Arc::new(AtomicUsize::new(0)),
+            captured_url: Arc::new(Mutex::new(None)),
+            captured_body: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+impl ApiHttpClient for MockIamClient {
+    async fn send_request<R: Send + serde::de::DeserializeOwned>(
+        &self,
+        _uri: String,
+        _method: Method,
+    ) -> Result<R, Report<ApiClientError>> {
+        unimplemented!()
+    }
+
+    async fn send_request_with_params<
+        R: serde::de::DeserializeOwned + Send,
+        P: Iterator<Item = (String, String)> + Send,
+    >(
+        &self,
+        _uri: String,
+        _params: P,
+        _method: Method,
+    ) -> Result<R, Report<ApiClientError>> {
+        unimplemented!()
+    }
+
+    async fn send_request_body<
+        Req: serde::Serialize + Send,
+        Resp: serde::de::DeserializeOwned + Send,
+    >(
+        &self,
+        uri: String,
+        _method: Method,
+        request_body: Req,
+    ) -> Result<Resp, Report<ApiClientError>> {
+        self.call_count.fetch_add(1, Ordering::SeqCst);
+        *self.captured_url.lock().unwrap() = Some(uri);
+        *self.captured_body.lock().unwrap() = Some(serde_json::to_value(&request_body).unwrap());
+        let resp = serde_json::json!({ "signedJwt": "fake.jwt.token" });
+        Ok(serde_json::from_value(resp).unwrap())
+    }
+
+    async fn send_request_body_get_bytes<Req: serde::Serialize + Send>(
+        &self,
+        _uri: String,
+        _method: Method,
+        _request_body: Req,
+    ) -> Result<Bytes, Report<ApiClientError>> {
+        unimplemented!()
+    }
+
+    async fn send_request_body_empty_response<Req: serde::Serialize + Send>(
+        &self,
+        _uri: String,
+        _method: Method,
+        _request_body: Req,
+    ) -> Result<(), Report<ApiClientError>> {
+        unimplemented!()
+    }
+}
+
+fn make_mock_auth(
+    sa_email: &str,
+) -> (
+    FirebaseAuth<MockIamClient>,
+    Arc<AtomicUsize>,
+    Arc<Mutex<Option<String>>>,
+    Arc<Mutex<Option<Value>>>,
+) {
+    let mock = MockIamClient::new();
+    let call_count = mock.call_count.clone();
+    let captured_url = mock.captured_url.clone();
+    let captured_body = mock.captured_body.clone();
+    let auth = FirebaseAuth::live_with_signer("test-project", sa_email, mock);
+    (auth, call_count, captured_url, captured_body)
+}
+
+/// Extracts and parses the `payload` JSON string from the captured IAM request body.
+fn decode_captured_payload(captured_body: &Arc<Mutex<Option<Value>>>) -> Value {
+    let lock = captured_body.lock().unwrap();
+    let body = lock.as_ref().expect("IAM was never called");
+    let payload_str = body["payload"].as_str().expect("payload field missing");
+    serde_json::from_str(payload_str).expect("payload is not valid JSON")
+}
+
+// JWT payload structure
+
+#[tokio::test]
+async fn test_custom_token_payload_required_fields() {
+    let sa = "signer@project.iam.gserviceaccount.com";
+    let (auth, _, _, captured_body) = make_mock_auth(sa);
+
+    let token = auth.create_custom_token("user-123").await.unwrap();
+    assert_eq!(token, "fake.jwt.token");
+
+    let payload = decode_captured_payload(&captured_body);
+    assert_eq!(payload["iss"], sa);
+    assert_eq!(payload["sub"], sa);
+    assert_eq!(
+        payload["aud"],
+        "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit"
+    );
+    assert_eq!(payload["uid"], "user-123");
+
+    let iat = payload["iat"].as_u64().unwrap();
+    let exp = payload["exp"].as_u64().unwrap();
+    assert_eq!(exp - iat, 3600, "token lifetime must be exactly 1 hour");
+
+    assert!(
+        payload.get("claims").is_none(),
+        "claims must be absent when not provided"
+    );
+}
+
+#[tokio::test]
+async fn test_custom_token_payload_with_claims() {
+    let sa = "signer@project.iam.gserviceaccount.com";
+    let (auth, _, _, captured_body) = make_mock_auth(sa);
+
+    let claims = serde_json::json!({ "role": "admin", "tier": 2 });
+    auth.create_custom_token_with_claims("user-456", claims.clone())
+        .await
+        .unwrap();
+
+    let payload = decode_captured_payload(&captured_body);
+    assert_eq!(payload["uid"], "user-456");
+    assert_eq!(
+        payload["claims"], claims,
+        "claims must be nested under 'claims' key"
+    );
+}
+
+#[tokio::test]
+async fn test_custom_token_payload_omits_claims_when_absent() {
+    let sa = "signer@project.iam.gserviceaccount.com";
+    let (auth, _, _, captured_body) = make_mock_auth(sa);
+
+    auth.create_custom_token("user-789").await.unwrap();
+
+    let payload = decode_captured_payload(&captured_body);
+    assert!(
+        payload.get("claims").is_none(),
+        "claims key must not be present in the payload when not provided"
+    );
+}
+
+// IAM URL
+
+#[tokio::test]
+async fn test_custom_token_iam_url_contains_service_account() {
+    let sa = "signer@project.iam.gserviceaccount.com";
+    let (auth, _, captured_url, _) = make_mock_auth(sa);
+
+    auth.create_custom_token("uid").await.unwrap();
+
+    let url = captured_url.lock().unwrap().clone().unwrap();
+    assert!(
+        url.contains("iamcredentials.googleapis.com"),
+        "must call IAM Credentials API"
+    );
+    assert!(url.ends_with(":signJwt"), "must use signJwt endpoint");
+    // email is URL-encoded in the path (@  → %40)
+    assert!(
+        url.contains("signer%40project.iam.gserviceaccount.com"),
+        "service account email must be URL-encoded in the IAM path"
+    );
+}
+
+// call count
+
+#[tokio::test]
+async fn test_create_custom_token_calls_iam_once_per_invocation() {
+    let sa = "signer@project.iam.gserviceaccount.com";
+    let (auth, call_count, _, _) = make_mock_auth(sa);
+
+    auth.create_custom_token("uid1").await.unwrap();
+    auth.create_custom_token("uid2").await.unwrap();
+
+    assert_eq!(
+        call_count.load(Ordering::SeqCst),
+        2,
+        "IAM must be called once per create_custom_token invocation"
+    );
+}
+
 #[cfg(feature = "tokens")]
 #[tokio::test]
 #[serial]
@@ -549,4 +945,62 @@ async fn test_create_session_cookie() {
     assert_eq!(email, "test@example.com");
 
     auth.clear_all_users().await.unwrap();
+}
+
+// emulated custom token (unsigned JWT)
+
+#[tokio::test]
+async fn test_emulated_create_custom_token_returns_unsigned_jwt() {
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+
+    let auth = get_auth_service();
+    let token = auth.create_custom_token("test-uid").await.unwrap();
+
+    let parts: Vec<&str> = token.split('.').collect();
+    assert_eq!(parts.len(), 3, "JWT must have 3 dot-separated parts");
+    assert_eq!(parts[2], "", "signature segment must be empty for alg=none");
+
+    let header: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[0]).unwrap()).unwrap();
+    assert_eq!(header["alg"], "none");
+    assert_eq!(header["typ"], "JWT");
+
+    let payload: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[1]).unwrap()).unwrap();
+    assert_eq!(payload["uid"], "test-uid");
+    assert_eq!(payload["iss"], "firebase-auth-emulator@example.com");
+    assert_eq!(payload["sub"], "firebase-auth-emulator@example.com");
+    assert_eq!(
+        payload["aud"],
+        "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit"
+    );
+    assert!(payload["iat"].is_number());
+    assert!(payload["exp"].is_number());
+    assert_eq!(
+        payload["exp"].as_u64().unwrap() - payload["iat"].as_u64().unwrap(),
+        3600
+    );
+    assert!(
+        payload.get("claims").is_none(),
+        "claims must be absent when not provided"
+    );
+}
+
+#[tokio::test]
+async fn test_emulated_create_custom_token_with_claims() {
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+
+    let auth = get_auth_service();
+    let claims = serde_json::json!({ "role": "admin", "tier": 2 });
+    let token = auth
+        .create_custom_token_with_claims("uid2", claims)
+        .await
+        .unwrap();
+
+    let parts: Vec<&str> = token.split('.').collect();
+    let payload: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[1]).unwrap()).unwrap();
+    assert_eq!(payload["uid"], "uid2");
+    assert_eq!(payload["claims"]["role"], "admin");
+    assert_eq!(payload["claims"]["tier"], 2);
 }
