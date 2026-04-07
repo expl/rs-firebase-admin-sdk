@@ -54,9 +54,7 @@ impl App<EmulatorCredentials> {
 impl App<AccessTokenCredentials> {
     /// Create instance of Firebase app for live project with an explicit project ID,
     /// bypassing environment variable and credential header resolution.
-    pub async fn live_with_project_id(
-        project_id: &str,
-    ) -> Result<Self, Report<GCPCredentialsError>> {
+    pub fn live_with_project_id(project_id: &str) -> Result<Self, Report<GCPCredentialsError>> {
         let credentials: Credentials = Builder::default()
             .with_scopes(FIREBASE_AUTH_SCOPES)
             .build_access_token_credentials()
@@ -98,7 +96,7 @@ impl App<AccessTokenCredentials> {
 
     /// Create OIDC token verifier
     #[cfg(feature = "tokens")]
-    pub async fn id_token_verifier(
+    pub fn id_token_verifier(
         &self,
     ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
         jwt::LiveValidator::new_jwt_validator(self.project_id.clone())
@@ -107,7 +105,7 @@ impl App<AccessTokenCredentials> {
 
     /// Create cookie token verifier
     #[cfg(feature = "tokens")]
-    pub async fn cookie_token_verifier(
+    pub fn cookie_token_verifier(
         &self,
     ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
         jwt::LiveValidator::new_cookie_validator(self.project_id.clone())
