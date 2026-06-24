@@ -1,10 +1,12 @@
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use core::future::Future;
+use core::pin::Pin;
 use error_stack::{Report, ResultExt};
 use jsonwebtoken::{DecodingKey, Validation, decode, decode_header};
 use jsonwebtoken_jwks_cache::{CachedJWKS, TimeoutSpec};
 use serde_json::{Value, from_slice};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -25,14 +27,16 @@ pub enum TokenVerificationError {
     Internal,
 }
 
+pub type ClaimsResult = Pin<
+    Box<dyn Future<Output = Result<HashMap<String, Value>, Report<TokenVerificationError>>> + Send>,
+>;
+
 pub trait TokenValidator {
     /// Validate JWT returning all claims on success
-    fn validate(
-        &self,
-        token: &str,
-    ) -> impl Future<Output = Result<HashMap<String, Value>, Report<TokenVerificationError>>> + Send + Sync;
+    fn validate(self: Arc<Self>, token: String) -> ClaimsResult;
 }
 
+#[derive(Clone)]
 pub struct LiveValidator {
     project_id: String,
     issuer: String,
@@ -68,30 +72,30 @@ impl LiveValidator {
 }
 
 impl TokenValidator for LiveValidator {
-    async fn validate(
-        &self,
-        token: &str,
-    ) -> Result<HashMap<String, Value>, Report<TokenVerificationError>> {
-        let jwks = self
-            .jwks
-            .get()
-            .await
-            .change_context(TokenVerificationError::Internal)?;
-        let jwt_header = decode_header(token).change_context(TokenVerificationError::Invalid)?;
+    fn validate(self: Arc<Self>, token: String) -> ClaimsResult {
+        Box::pin(async move {
+            let jwks = self
+                .jwks
+                .get()
+                .await
+                .change_context(TokenVerificationError::Internal)?;
+            let jwt_header =
+                decode_header(&token).change_context(TokenVerificationError::Invalid)?;
 
-        let jwk: DecodingKey = jwks
-            .find(&jwt_header.kid.ok_or(TokenVerificationError::MissingKey)?)
-            .ok_or(TokenVerificationError::MissingKey)?
-            .try_into()
-            .change_context(TokenVerificationError::Internal)?;
+            let jwk: DecodingKey = jwks
+                .find(&jwt_header.kid.ok_or(TokenVerificationError::MissingKey)?)
+                .ok_or(TokenVerificationError::MissingKey)?
+                .try_into()
+                .change_context(TokenVerificationError::Internal)?;
 
-        let mut validator = Validation::new(jwt_header.alg);
-        validator.set_audience(&[&self.project_id]);
-        validator.set_issuer(&[&self.issuer]);
+            let mut validator = Validation::new(jwt_header.alg);
+            validator.set_audience(&[&self.project_id]);
+            validator.set_issuer(&[&self.issuer]);
 
-        decode::<HashMap<String, Value>>(token, &jwk, &validator)
-            .change_context(TokenVerificationError::Invalid)
-            .map(|t| t.claims)
+            decode::<HashMap<String, Value>>(&token, &jwk, &validator)
+                .change_context(TokenVerificationError::Invalid)
+                .map(|t| t.claims)
+        })
     }
 }
 
@@ -99,19 +103,18 @@ impl TokenValidator for LiveValidator {
 pub struct EmulatorValidator;
 
 impl TokenValidator for EmulatorValidator {
-    async fn validate(
-        &self,
-        token: &str,
-    ) -> Result<HashMap<String, Value>, Report<TokenVerificationError>> {
-        let header = token
-            .split(".")
-            .nth(1)
-            .ok_or(TokenVerificationError::Invalid)?;
+    fn validate(self: Arc<Self>, token: String) -> ClaimsResult {
+        Box::pin(async move {
+            let header = token
+                .split(".")
+                .nth(1)
+                .ok_or(TokenVerificationError::Invalid)?;
 
-        let header = URL_SAFE_NO_PAD
-            .decode(header)
-            .change_context(TokenVerificationError::Invalid)?;
+            let header = URL_SAFE_NO_PAD
+                .decode(header)
+                .change_context(TokenVerificationError::Invalid)?;
 
-        from_slice(&header).change_context(TokenVerificationError::Invalid)
+            from_slice(&header).change_context(TokenVerificationError::Invalid)
+        })
     }
 }

@@ -12,6 +12,7 @@ use crate::client::ApiHttpClient;
 use crate::client::error::ApiClientError;
 use crate::util::{I128EpochMs, StrEpochMs, StrEpochSec};
 pub use claims::Claims;
+use core::pin::Pin;
 use error_stack::Report;
 use http::Method;
 pub use import::{UserImportRecord, UserImportRecords};
@@ -349,13 +350,13 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn create_user(
         &self,
         user: NewUser,
-    ) -> impl Future<Output = Result<User, Report<ApiClientError>>> + Send {
+    ) -> Pin<Box<impl Future<Output = Result<User, Report<ApiClientError>>> + Send>> {
         let client = self.get_client();
         let uri = self
             .get_auth_uri_builder()
             .build(FirebaseAuthRestApi::CreateUser);
 
-        client.send_request_body(uri, Method::POST, user)
+        Box::pin(client.send_request_body(uri, Method::POST, user))
     }
 
     /// Get first user that matches given identifier filter
@@ -371,14 +372,14 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn get_user(
         &self,
         indentifiers: UserIdentifiers,
-    ) -> impl Future<Output = Result<Option<User>, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<Option<User>, Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             if let Some(users) = self.get_users(indentifiers).await? {
                 return Ok(users.into_iter().next());
             }
 
             Ok(None)
-        }
+        })
     }
 
     /// Get all users that match a given identifier filter
@@ -395,8 +396,9 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn get_users(
         &self,
         indentifiers: UserIdentifiers,
-    ) -> impl Future<Output = Result<Option<Vec<User>>, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<Option<Vec<User>>, Report<ApiClientError>>> + Send>>
+    {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -409,7 +411,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                 .await?;
 
             Ok(users.users)
-        }
+        })
     }
 
     /// Fetch all users in batches of `users_per_page`, to progress pass previous page into the method's `prev`.
@@ -432,8 +434,9 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
         &self,
         users_per_page: usize,
         prev: Option<UserList>,
-    ) -> impl Future<Output = Result<Option<UserList>, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<Option<UserList>, Report<ApiClientError>>> + Send>>
+    {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
             let mut params = vec![("maxResults".to_string(), users_per_page.clone().to_string())];
@@ -455,15 +458,15 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                 .await?;
 
             Ok(Some(users))
-        }
+        })
     }
 
     /// Delete user with given ID
     fn delete_user(
         &self,
         uid: String,
-    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<(), Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -474,7 +477,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     UserId { uid },
                 )
                 .await
-        }
+        })
     }
 
     /// Delete all users with given list of IDs
@@ -482,8 +485,8 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
         &self,
         uids: Vec<String>,
         force: bool,
-    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<(), Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -494,7 +497,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     UserIds { uids, force },
                 )
                 .await
-        }
+        })
     }
 
     /// Update user with given changes
@@ -510,8 +513,8 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn update_user(
         &self,
         update: UserUpdate,
-    ) -> impl Future<Output = Result<User, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<User, Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -522,7 +525,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                     update,
                 )
                 .await
-        }
+        })
     }
 
     /// Create users in bulk
@@ -539,8 +542,8 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn import_users(
         &self,
         users: Vec<UserImportRecord>,
-    ) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<(), Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -553,7 +556,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                 .await?;
 
             Ok(())
-        }
+        })
     }
 
     /// Send email with OOB code action
@@ -569,8 +572,8 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn generate_email_action_link(
         &self,
         oob_action: OobCodeAction,
-    ) -> impl Future<Output = Result<String, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<String, Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -583,7 +586,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                 .await?;
 
             Ok(oob_link.oob_link)
-        }
+        })
     }
 
     /// Create session cookie
@@ -592,8 +595,8 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
         &self,
         id_token: String,
         expires_in: Duration,
-    ) -> impl Future<Output = Result<String, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<String, Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
 
@@ -611,7 +614,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
                 .await?;
 
             Ok(session_cookie.session_cookie)
-        }
+        })
     }
 }
 
@@ -664,8 +667,10 @@ where
     fn get_emulator_auth_uri_builder(&self) -> &ApiUriBuilder;
 
     /// Delete all users within emulator
-    fn clear_all_users(&self) -> impl Future<Output = Result<(), Report<ApiClientError>>> + Send {
-        async move {
+    fn clear_all_users(
+        &self,
+    ) -> Pin<Box<impl Future<Output = Result<(), Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_emulator_client();
             let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -677,14 +682,15 @@ where
                 .await?;
 
             Ok(())
-        }
+        })
     }
 
     /// Get current emulator configuration
     fn get_emulator_configuration(
         &self,
-    ) -> impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send>>
+    {
+        Box::pin(async move {
             let client = self.get_emulator_client();
             let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -694,15 +700,16 @@ where
                     Method::GET,
                 )
                 .await
-        }
+        })
     }
 
     /// Update emulator configuration
     fn patch_emulator_configuration(
         &self,
         configuration: EmulatorConfiguration,
-    ) -> impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<EmulatorConfiguration, Report<ApiClientError>>> + Send>>
+    {
+        Box::pin(async move {
             let client = self.get_emulator_client();
             let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -713,14 +720,14 @@ where
                     configuration,
                 )
                 .await
-        }
+        })
     }
 
     /// Fetch all OOB codes within emulator
     fn get_oob_codes(
         &self,
-    ) -> impl Future<Output = Result<Vec<OobCode>, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<Vec<OobCode>, Report<ApiClientError>>> + Send>> {
+        Box::pin(async move {
             let client = self.get_emulator_client();
             let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -732,14 +739,15 @@ where
                 .await?;
 
             Ok(oob_codes.oob_codes)
-        }
+        })
     }
 
     /// Fetch all SMS codes within emulator
     fn get_sms_verification_codes(
         &self,
-    ) -> impl Future<Output = Result<SmsVerificationCodes, Report<ApiClientError>>> + Send {
-        async move {
+    ) -> Pin<Box<impl Future<Output = Result<SmsVerificationCodes, Report<ApiClientError>>> + Send>>
+    {
+        Box::pin(async move {
             let client = self.get_emulator_client();
             let uri_builder = self.get_emulator_auth_uri_builder();
 
@@ -749,7 +757,7 @@ where
                     Method::GET,
                 )
                 .await
-        }
+        })
     }
 }
 

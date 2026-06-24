@@ -47,7 +47,7 @@ use rs_firebase_admin_sdk::{
 };
 
 // Supply the Firebase project ID directly instead of reading GOOGLE_CLOUD_PROJECT
-let live_app = App::live_with_project_id("my-firebase-project-id").await.unwrap();
+let live_app = App::live_with_project_id("my-firebase-project-id").unwrap();
 ```
 
 For more examples please see https://github.com/expl/rs-firebase-admin-sdk/tree/main/examples
