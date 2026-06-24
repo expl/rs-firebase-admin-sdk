@@ -8,67 +8,33 @@ pub mod util;
 
 use auth::FirebaseAuth;
 use client::ReqwestApiClient;
-use core::marker::PhantomData;
 use credentials::{GCPCredentialsError, emulator::EmulatorCredentials, get_project_id};
 use error_stack::{Report, ResultExt};
-use google_cloud_auth::credentials::{AccessTokenCredentials, Builder};
+use google_cloud_auth::credentials::Builder;
 pub use google_cloud_auth::credentials::{Credentials, CredentialsProvider};
+use std::sync::Arc;
 
 const FIREBASE_AUTH_SCOPES: [&str; 2] = [
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
 ];
 
-/// Base privileged manager for Firebase
-pub struct App<C> {
-    credentials: Credentials,
-    project_id: String,
-    _credentials_provider: PhantomData<C>,
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Failed to create Firebase token validator")]
+pub struct FirebaseAppValidatorError;
+
+pub enum App {
+    Live {
+        credentials: Credentials,
+        project_id: String,
+    },
+    Emulated {
+        credentials: EmulatorCredentials,
+        url: String,
+    },
 }
 
-impl App<EmulatorCredentials> {
-    /// Firebase app backend by emulator
-    pub fn emulated() -> Self {
-        let credentials = EmulatorCredentials::default();
-        Self {
-            project_id: credentials.project_id.clone(),
-            credentials: credentials.into(),
-            _credentials_provider: PhantomData,
-        }
-    }
-
-    /// Firebase authentication manager for emulator
-    pub fn auth(&self, emulator_url: String) -> FirebaseAuth<ReqwestApiClient> {
-        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
-
-        FirebaseAuth::emulated(emulator_url, &self.project_id, client)
-    }
-
-    /// OIDC token verifier for emulator
-    #[cfg(feature = "tokens")]
-    pub fn id_token_verifier(&self) -> impl jwt::TokenValidator {
-        jwt::EmulatorValidator
-    }
-}
-
-impl App<AccessTokenCredentials> {
-    /// Create instance of Firebase app for live project with an explicit project ID,
-    /// bypassing environment variable and credential header resolution.
-    pub fn live_with_project_id(project_id: &str) -> Result<Self, Report<GCPCredentialsError>> {
-        let credentials: Credentials = Builder::default()
-            .with_scopes(FIREBASE_AUTH_SCOPES)
-            .build_access_token_credentials()
-            .change_context(GCPCredentialsError)?
-            .into();
-
-        Ok(Self {
-            credentials,
-            project_id: project_id.to_string(),
-            _credentials_provider: PhantomData,
-        })
-    }
-
-    /// Create instance of Firebase app for live project
+impl App {
     pub async fn live() -> Result<Self, Report<GCPCredentialsError>> {
         let credentials: Credentials = Builder::default()
             .with_scopes(FIREBASE_AUTH_SCOPES)
@@ -80,35 +46,84 @@ impl App<AccessTokenCredentials> {
             .await
             .change_context(GCPCredentialsError)?;
 
-        Ok(Self {
+        Ok(Self::Live {
             credentials,
             project_id,
-            _credentials_provider: PhantomData,
         })
     }
 
-    /// Create Firebase authentication manager
+    pub fn live_with_project_id(project_id: String) -> Result<Self, Report<GCPCredentialsError>> {
+        let credentials: Credentials = Builder::default()
+            .with_scopes(FIREBASE_AUTH_SCOPES)
+            .build_access_token_credentials()
+            .change_context(GCPCredentialsError)?
+            .into();
+
+        Ok(Self::Live {
+            credentials,
+            project_id,
+        })
+    }
+
+    pub fn emulated(url: String) -> Self {
+        Self::Emulated {
+            credentials: EmulatorCredentials::default(),
+            url,
+        }
+    }
+
     pub fn auth(&self) -> FirebaseAuth<ReqwestApiClient> {
-        let client = ReqwestApiClient::new(reqwest::Client::new(), self.credentials.clone());
+        match self {
+            Self::Live {
+                credentials,
+                project_id,
+            } => {
+                let client = ReqwestApiClient::new(reqwest::Client::new(), credentials.clone());
 
-        FirebaseAuth::live(&self.project_id, client)
+                FirebaseAuth::live(project_id, client)
+            }
+            Self::Emulated { credentials, url } => {
+                let client =
+                    ReqwestApiClient::new(reqwest::Client::new(), credentials.clone().into());
+
+                FirebaseAuth::emulated(url.clone(), &credentials.project_id, client)
+            }
+        }
     }
 
-    /// Create OIDC token verifier
     #[cfg(feature = "tokens")]
-    pub fn id_token_verifier(
+    pub fn token_validator(
         &self,
-    ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
-        jwt::LiveValidator::new_jwt_validator(self.project_id.clone())
-            .change_context(credentials::GCPCredentialsError)
+    ) -> Result<Arc<dyn jwt::TokenValidator>, Report<FirebaseAppValidatorError>> {
+        match self {
+            Self::Live {
+                credentials: _,
+                project_id,
+            } => jwt::LiveValidator::new_jwt_validator(project_id.clone())
+                .change_context(FirebaseAppValidatorError)
+                .map(|s| Arc::new(s) as Arc<dyn jwt::TokenValidator>),
+            Self::Emulated {
+                credentials: _,
+                url: _,
+            } => Ok(Arc::new(jwt::EmulatorValidator) as Arc<dyn jwt::TokenValidator>),
+        }
     }
 
-    /// Create cookie token verifier
     #[cfg(feature = "tokens")]
-    pub fn cookie_token_verifier(
+    pub fn cookie_validator(
         &self,
-    ) -> Result<impl jwt::TokenValidator, Report<credentials::GCPCredentialsError>> {
-        jwt::LiveValidator::new_cookie_validator(self.project_id.clone())
-            .change_context(credentials::GCPCredentialsError)
+    ) -> Result<Arc<dyn jwt::TokenValidator>, Report<FirebaseAppValidatorError>> {
+        match self {
+            Self::Live {
+                credentials: _,
+                project_id,
+            } => jwt::LiveValidator::new_cookie_validator(project_id.clone())
+                .change_context(FirebaseAppValidatorError)
+                .map(|s| Arc::new(s) as Arc<dyn jwt::TokenValidator>),
+            Self::Emulated {
+                credentials: _,
+                url: _,
+            } => Ok(Arc::new(jwt::EmulatorValidator) as Arc<dyn jwt::TokenValidator>),
+        }
     }
 }

@@ -32,8 +32,8 @@ async fn main() {
     print_all_users(&live_auth_admin).await;
 
     // Emulator Firebase App
-    let emulator_app = App::emulated();
-    let emulator_auth_admin = emulator_app.auth("http://localhost:9099".into());
+    let emulator_app = App::emulated("http://localhost:9099".into());
+    let emulator_auth_admin = emulator_app.auth();
 
     print_all_users(&emulator_auth_admin).await;
 }

@@ -11,13 +11,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serial_test::serial;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 #[cfg(feature = "tokens")]
 use time::Duration;
 use tokio;
 
 fn get_auth_service() -> FirebaseAuth<ReqwestApiClient> {
-    App::emulated().auth("http://emulator:9099".parse().unwrap())
+    App::emulated("http://emulator:9099".into()).auth()
 }
 
 #[derive(Serialize)]
@@ -543,8 +544,9 @@ async fn test_create_session_cookie() {
         .create_session_cookie(id_token, Duration::hours(1))
         .await
         .unwrap();
+    let validator = Arc::new(EmulatorValidator);
 
-    let claims = EmulatorValidator.validate(&cookie).await.unwrap();
+    let claims = validator.validate(cookie).await.unwrap();
     let email = claims.get("email").unwrap().as_str().unwrap();
     assert_eq!(email, "test@example.com");
 

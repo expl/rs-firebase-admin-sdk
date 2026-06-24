@@ -1,4 +1,4 @@
-use rs_firebase_admin_sdk::{App, auth::FirebaseAuthService, jwt::TokenValidator};
+use rs_firebase_admin_sdk::{App, auth::FirebaseAuthService};
 use time::Duration;
 
 #[tokio::main]
@@ -10,8 +10,7 @@ async fn main() {
         .create_session_cookie(oidc_token, Duration::seconds(60 * 60))
         .await
         .unwrap();
+    let live_cookie_validator = live_app.cookie_validator().unwrap();
 
-    let live_cookie_validator = live_app.cookie_token_verifier().unwrap();
-
-    live_cookie_validator.validate(&cookie).await.unwrap();
+    live_cookie_validator.validate(cookie).await.unwrap();
 }

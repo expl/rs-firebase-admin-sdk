@@ -12,8 +12,8 @@ where
 
 #[tokio::main]
 async fn main() {
-    let emulator_app = App::emulated();
-    let emulator_admin = emulator_app.auth("http://localhost:9099".into());
+    let emulator_app = App::emulated("http://localhost:9099".into());
+    let emulator_admin = emulator_app.auth();
 
     clear_emulator(&emulator_admin).await;
 }
