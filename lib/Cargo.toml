@@ -1,6 +1,6 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "4.3.0"
+version = "5.0.0"
 rust-version = "1.88"
 edition = "2024"
 authors = ["Kostas Petrikas"]
@@ -18,7 +18,7 @@ default = ["tokens"]
 tokens = ["dep:jsonwebtoken", "dep:jsonwebtoken-jwks-cache"]
 
 [dependencies]
-tokio = { version = "1.51", features = ["sync"], default-features = false }
+tokio = { version = "1.52", features = ["sync"], default-features = false }
 error-stack = "0.7"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -28,12 +28,12 @@ headers = "0.4"
 reqwest = { version = "0.13", features = ["charset", "json", "hickory-dns", "rustls", "brotli"], default-features = false }
 urlencoding = "2.1"
 bytes = "1"
-google-cloud-auth = "1.8"
+google-cloud-auth = "1.13"
 time = { version = "0.3", features = ["serde"] }
 base64 = "0.22"
 jsonwebtoken = { version = "10", optional = true }
 jsonwebtoken-jwks-cache = { version = "0.3", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.51", features = ["macros", "rt-multi-thread"] }
-serial_test = "3.4"
+tokio = { version = "1.52", features = ["macros", "rt-multi-thread"] }
+serial_test = "3.5"
