@@ -1,4 +1,4 @@
-FROM rust:1.88
+FROM rust:1.91
 
 RUN rustup update
 RUN rustup component add clippy
