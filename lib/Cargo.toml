@@ -1,7 +1,7 @@
 [package]
 name = "rs-firebase-admin-sdk"
-version = "5.0.0"
-rust-version = "1.88"
+version = "5.1.0"
+rust-version = "1.93"
 edition = "2024"
 authors = ["Kostas Petrikas"]
 categories = ["authentication", "api-bindings", "asynchronous"]
@@ -18,8 +18,8 @@ default = ["tokens"]
 tokens = ["dep:jsonwebtoken", "dep:jsonwebtoken-jwks-cache"]
 
 [dependencies]
-tokio = { version = "1.52", features = ["sync"], default-features = false }
-error-stack = "0.7"
+tokio = { version = "1", features = ["sync"], default-features = false }
+error-stack = "0.8"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -28,12 +28,12 @@ headers = "0.4"
 reqwest = { version = "0.13", features = ["charset", "json", "hickory-dns", "rustls", "brotli"], default-features = false }
 urlencoding = "2.1"
 bytes = "1"
-google-cloud-auth = "1.13"
+google-cloud-auth = "1.19"
 time = { version = "0.3", features = ["serde"] }
-base64 = "0.22"
-jsonwebtoken = { version = "10", optional = true }
-jsonwebtoken-jwks-cache = { version = "0.3", optional = true }
+base64 = "0.23"
+jsonwebtoken = { version = "12", optional = true }
+jsonwebtoken-jwks-cache = { version = "0.4", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.52", features = ["macros", "rt-multi-thread"] }
-serial_test = "3.5"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+serial_test = "4"

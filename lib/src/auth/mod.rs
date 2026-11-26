@@ -25,6 +25,8 @@ use time::{Duration, OffsetDateTime};
 
 const FIREBASE_AUTH_REST_AUTHORITY: &str = "identitytoolkit.googleapis.com";
 
+pub type OptUsers = Option<Vec<User>>;
+
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NewUser {
@@ -396,8 +398,7 @@ pub trait FirebaseAuthService<C: ApiHttpClient>: Send + Sync + 'static {
     fn get_users(
         &self,
         indentifiers: UserIdentifiers,
-    ) -> Pin<Box<impl Future<Output = Result<Option<Vec<User>>, Report<ApiClientError>>> + Send>>
-    {
+    ) -> Pin<Box<impl Future<Output = Result<OptUsers, Report<ApiClientError>>> + Send>> {
         Box::pin(async move {
             let client = self.get_client();
             let uri_builder = self.get_auth_uri_builder();
